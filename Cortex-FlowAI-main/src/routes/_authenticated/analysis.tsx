@@ -1,18 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  RadialBarChart,
-  RadialBar,
-  PolarAngleAxis,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  LineChart, Line, RadialBarChart, RadialBar, PolarAngleAxis,
 } from "recharts";
 import { AppShell } from "@/components/app-shell";
 import { useTransactions, formatCurrency } from "@/lib/finance";
@@ -32,9 +22,7 @@ function AnalysisPage() {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="font-display text-3xl font-bold sm:text-4xl">Financial Analysis</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Deep dive into your spending patterns and trends.
-            </p>
+            <p className="mt-1 text-sm text-muted-foreground">Deep dive into your spending patterns and trends.</p>
           </div>
         </div>
 
@@ -43,22 +31,10 @@ function AnalysisPage() {
             <ResponsiveContainer width="100%" height={240}>
               <LineChart data={stats.trend}>
                 <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
-                <XAxis
-                  dataKey="day"
-                  stroke="#aab0d6"
-                  fontSize={10}
-                  tickLine={false}
-                  axisLine={false}
-                />
+                <XAxis dataKey="day" stroke="#aab0d6" fontSize={10} tickLine={false} axisLine={false} />
                 <YAxis stroke="#aab0d6" fontSize={10} tickLine={false} axisLine={false} />
                 <Tooltip content={<GlassTip />} />
-                <Line
-                  type="monotone"
-                  dataKey="amount"
-                  stroke="#8b5cf6"
-                  strokeWidth={2.5}
-                  dot={false}
-                />
+                <Line type="monotone" dataKey="amount" stroke="#8b5cf6" strokeWidth={2.5} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </Card>
@@ -67,22 +43,8 @@ function AnalysisPage() {
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={stats.categories} layout="vertical">
                 <CartesianGrid stroke="rgba(255,255,255,0.06)" horizontal={false} />
-                <XAxis
-                  type="number"
-                  stroke="#aab0d6"
-                  fontSize={10}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  type="category"
-                  dataKey="name"
-                  stroke="#aab0d6"
-                  fontSize={11}
-                  width={90}
-                  tickLine={false}
-                  axisLine={false}
-                />
+                <XAxis type="number" stroke="#aab0d6" fontSize={10} tickLine={false} axisLine={false} />
+                <YAxis type="category" dataKey="name" stroke="#aab0d6" fontSize={11} width={90} tickLine={false} axisLine={false} />
                 <Tooltip content={<GlassTip />} />
                 <Bar dataKey="value" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
               </BarChart>
@@ -93,13 +55,7 @@ function AnalysisPage() {
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={stats.monthly}>
                 <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
-                <XAxis
-                  dataKey="month"
-                  stroke="#aab0d6"
-                  fontSize={10}
-                  tickLine={false}
-                  axisLine={false}
-                />
+                <XAxis dataKey="month" stroke="#aab0d6" fontSize={10} tickLine={false} axisLine={false} />
                 <YAxis stroke="#aab0d6" fontSize={10} tickLine={false} axisLine={false} />
                 <Tooltip content={<GlassTip />} />
                 <Bar dataKey="income" fill="#3ddc97" radius={[4, 4, 0, 0]} />
@@ -111,25 +67,13 @@ function AnalysisPage() {
           <Card title="Savings Rate" subtitle="Goal: 20% of income">
             <div className="relative">
               <ResponsiveContainer width="100%" height={240}>
-                <RadialBarChart
-                  innerRadius="65%"
-                  outerRadius="100%"
-                  data={[{ name: "rate", value: stats.savingsRate, fill: "#8b5cf6" }]}
-                  startAngle={210}
-                  endAngle={-30}
-                >
+                <RadialBarChart innerRadius="65%" outerRadius="100%" data={[{ name: "rate", value: stats.savingsRate, fill: "#8b5cf6" }]} startAngle={210} endAngle={-30}>
                   <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
-                  <RadialBar
-                    background={{ fill: "rgba(255,255,255,0.06)" } as any}
-                    dataKey="value"
-                    cornerRadius={20}
-                  />
+                  <RadialBar background={{ fill: "rgba(255,255,255,0.06)" } as any} dataKey="value" cornerRadius={20} />
                 </RadialBarChart>
               </ResponsiveContainer>
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                <div className="font-mono text-4xl font-bold gradient-text">
-                  {stats.savingsRate.toFixed(0)}%
-                </div>
+                <div className="font-mono text-4xl font-bold gradient-text">{stats.savingsRate.toFixed(0)}%</div>
                 <div className="mt-1 text-xs text-muted-foreground">of income saved</div>
               </div>
             </div>
@@ -149,15 +93,7 @@ function AnalysisPage() {
   );
 }
 
-function Card({
-  title,
-  subtitle,
-  children,
-}: {
-  title: string;
-  subtitle?: string;
-  children: React.ReactNode;
-}) {
+function Card({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
     <div className="rounded-2xl border border-border bg-glass p-5 backdrop-blur-xl">
       <div className="mb-3">
@@ -187,17 +123,14 @@ function GlassTip({ active, payload, label }: any) {
 
 function analyze(txns: any[]) {
   const now = new Date();
-  const thirty = new Date();
-  thirty.setDate(thirty.getDate() - 30);
+  const thirty = new Date(); thirty.setDate(thirty.getDate() - 30);
   const recent = txns.filter((t) => new Date(t.occurred_on) >= thirty);
   const trendMap = new Map<string, number>();
   for (let i = 29; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
+    const d = new Date(); d.setDate(d.getDate() - i);
     trendMap.set(d.toISOString().slice(5, 10), 0);
   }
-  let totalSpent = 0,
-    totalIncome = 0;
+  let totalSpent = 0, totalIncome = 0;
   const catMap = new Map<string, number>();
   for (const t of recent) {
     const key = t.occurred_on.slice(5, 10);
@@ -208,44 +141,25 @@ function analyze(txns: any[]) {
       catMap.set(t.category, (catMap.get(t.category) ?? 0) + amt);
     } else totalIncome += amt;
   }
-  const categories = Array.from(catMap, ([name, value]) => ({ name, value }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 6);
+  const categories = Array.from(catMap, ([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 6);
   const topCategory = categories[0]?.name;
   const topShare = totalSpent ? ((categories[0]?.value ?? 0) / totalSpent) * 100 : 0;
-  const savingsRate = totalIncome
-    ? Math.max(0, ((totalIncome - totalSpent) / totalIncome) * 100)
-    : 0;
+  const savingsRate = totalIncome ? Math.max(0, ((totalIncome - totalSpent) / totalIncome) * 100) : 0;
   const trend = Array.from(trendMap, ([day, amount]) => ({ day, amount }));
 
   // monthly
   const monthly: { month: string; income: number; expenses: number }[] = [];
   for (let i = 5; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    let mi = 0,
-      me = 0;
+    let mi = 0, me = 0;
     for (const t of txns) {
       const td = new Date(t.occurred_on);
       if (td.getMonth() === d.getMonth() && td.getFullYear() === d.getFullYear()) {
-        if (t.type === "income") mi += Number(t.amount);
-        else me += Number(t.amount);
+        if (t.type === "income") mi += Number(t.amount); else me += Number(t.amount);
       }
     }
-    monthly.push({
-      month: d.toLocaleDateString("en", { month: "short" }),
-      income: mi,
-      expenses: me,
-    });
+    monthly.push({ month: d.toLocaleDateString("en", { month: "short" }), income: mi, expenses: me });
   }
 
-  return {
-    trend,
-    categories,
-    monthly,
-    totalSpent,
-    txCount: recent.length,
-    topCategory,
-    topShare,
-    savingsRate,
-  };
+  return { trend, categories, monthly, totalSpent, txCount: recent.length, topCategory, topShare, savingsRate };
 }

@@ -1,9 +1,7 @@
-// Reports client-side errors caught by the root error boundary.
-// Replace the console.error below with a real error-tracking service
-// (Sentry, LogRocket, etc.) when you set one up.
-type ErrorContext = Record<string, unknown>;
-
-export function reportError(error: unknown, context: ErrorContext = {}) {
+// Lightweight client-side error reporter. This previously forwarded errors
+// to Lovable's editor overlay via window.__lovableEvents; now it just logs
+// to the console. Swap in Sentry/etc. here if you want remote error tracking.
+export function reportError(error: unknown, context: Record<string, unknown> = {}) {
   if (typeof window === "undefined") return;
   console.error("[error-boundary]", error, {
     route: window.location.pathname,

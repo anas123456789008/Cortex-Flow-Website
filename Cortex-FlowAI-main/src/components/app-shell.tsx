@@ -45,19 +45,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     queryFn: async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return null;
-      const { data } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", u.user.id)
-        .maybeSingle();
-      return (
-        data ?? {
-          id: u.user.id,
-          name: u.user.email?.split("@")[0],
-          email: u.user.email,
-          avatar_url: null,
-        }
-      );
+      const { data } = await supabase.from("profiles").select("*").eq("id", u.user.id).maybeSingle();
+      return data ?? { id: u.user.id, name: u.user.email?.split("@")[0], email: u.user.email, avatar_url: null };
     },
   });
 
@@ -83,12 +72,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         >
           <div className="flex h-full w-full flex-col px-3 py-5 xl:px-4">
             <div className="mb-6 flex items-center justify-center px-1 xl:justify-start xl:px-2">
-              <div className="xl:hidden">
-                <Brand size="sm" />
-              </div>
-              <div className="hidden xl:block">
-                <Brand />
-              </div>
+              <div className="xl:hidden"><Brand size="sm" /></div>
+              <div className="hidden xl:block"><Brand /></div>
             </div>
 
             <nav className="flex-1 space-y-1">
@@ -120,9 +105,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="my-4 hidden overflow-hidden rounded-xl border border-violet/30 bg-gradient-to-br from-violet/20 via-indigo/15 to-transparent p-4 xl:block">
               <div className="mb-2 flex items-center gap-2">
                 <Sparkles size={16} className="text-violet" />
-                <span className="text-xs font-semibold uppercase tracking-wider text-violet">
-                  Pro
-                </span>
+                <span className="text-xs font-semibold uppercase tracking-wider text-violet">Pro</span>
               </div>
               <p className="text-xs leading-relaxed text-muted-foreground">
                 Unlock deeper insights, unlimited documents and advanced AI analysis.
@@ -175,10 +158,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Mobile bottom nav */}
       <nav
         className="fixed inset-x-0 bottom-0 z-30 grid h-16 grid-cols-5 border-t border-white/[0.08] bg-background/70 backdrop-blur-2xl md:hidden"
-        style={{
-          backdropFilter: "blur(24px) saturate(180%)",
-          paddingBottom: "env(safe-area-inset-bottom)",
-        }}
+        style={{ backdropFilter: "blur(24px) saturate(180%)", paddingBottom: "env(safe-area-inset-bottom)" }}
       >
         {mobileNav.map((item) => {
           const active = isActive(item.to);
@@ -191,9 +171,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 active ? "text-violet" : "text-muted-foreground"
               }`}
             >
-              <div
-                className={`relative grid h-9 w-9 place-items-center rounded-xl transition ${active ? "bg-violet/20 shadow-[0_0_20px_var(--violet)]" : ""}`}
-              >
+              <div className={`relative grid h-9 w-9 place-items-center rounded-xl transition ${active ? "bg-violet/20 shadow-[0_0_20px_var(--violet)]" : ""}`}>
                 <Icon size={18} />
               </div>
               {item.label}

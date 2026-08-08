@@ -1,17 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import React, { useEffect, useRef, useState } from "react";
-import {
-  Send,
-  Loader2,
-  Copy,
-  Sparkles,
-  Brain,
-  MoreHorizontal,
-  Pencil,
-  Trash2,
-  Check,
-  X,
-} from "lucide-react";
+import { Send, Loader2, Copy, Sparkles, Brain, MoreHorizontal, Pencil, Trash2, Check, X } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -20,11 +9,7 @@ import { toast } from "sonner";
 const TITLES_KEY = "chatSessionTitles";
 function loadTitles(): Record<string, string> {
   if (typeof window === "undefined") return {};
-  try {
-    return JSON.parse(localStorage.getItem(TITLES_KEY) ?? "{}");
-  } catch {
-    return {};
-  }
+  try { return JSON.parse(localStorage.getItem(TITLES_KEY) ?? "{}"); } catch { return {}; }
 }
 function saveTitles(t: Record<string, string>) {
   if (typeof window !== "undefined") localStorage.setItem(TITLES_KEY, JSON.stringify(t));
@@ -53,9 +38,7 @@ function getSessionId() {
 
 function ChatPage() {
   const qc = useQueryClient();
-  const [sessionId, setSessionId] = useState(() =>
-    typeof window !== "undefined" ? getSessionId() : "default",
-  );
+  const [sessionId, setSessionId] = useState(() => (typeof window !== "undefined" ? getSessionId() : "default"));
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -85,11 +68,7 @@ function ChatPage() {
       for (const row of data ?? []) {
         if (seen.has(row.session_id)) continue;
         seen.add(row.session_id);
-        out.push({
-          session_id: row.session_id,
-          preview: row.content.slice(0, 60),
-          created_at: row.created_at,
-        });
+        out.push({ session_id: row.session_id, preview: row.content.slice(0, 60), created_at: row.created_at });
       }
       return out;
     },
@@ -108,10 +87,7 @@ function ChatPage() {
     if (!u.user) return;
 
     await supabase.from("chat_history").insert({
-      user_id: u.user.id,
-      session_id: sessionId,
-      role: "user",
-      content: text,
+      user_id: u.user.id, session_id: sessionId, role: "user", content: text,
     });
     qc.invalidateQueries({ queryKey: ["chat", sessionId] });
 
@@ -125,16 +101,16 @@ function ChatPage() {
           message: text,
         }),
       });
-
+    
       if (!res.ok) {
         throw new Error(`Server error: ${res.status}`);
       }
-
+      
       const data = await res.json();
       console.log("API Response:", data);
-
+    
       const reply = data.answer;
-
+    
       await supabase.from("chat_history").insert({
         user_id: u.user.id,
         session_id: sessionId,
@@ -142,12 +118,13 @@ function ChatPage() {
         content: JSON.stringify({
           answer: data.answer,
           result: data.result,
-          show_table: data.show_table,
-        }),
+          show_table: data.show_table
+        })
       });
-
+    
       qc.invalidateQueries({ queryKey: ["chat", sessionId] });
       qc.invalidateQueries({ queryKey: ["chat-sessions"] });
+    
     } catch (e) {
       toast.error("Couldn't reach the AI service");
     } finally {
@@ -155,65 +132,80 @@ function ChatPage() {
     }
   }
 
-  async function handleCsvUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+async function handleCsvUpload(
+  e: React.ChangeEvent<HTMLInputElement>
+) {
+  const file = e.target.files?.[0];
 
-    if (!file) return;
+  if (!file) return;
 
-    const isCsv = file.name.toLowerCase().endsWith(".csv");
+  const isCsv = file.name
+    .toLowerCase()
+    .endsWith(".csv");
 
-    const endpoint = isCsv ? CSV_UPLOAD_URL : FILE_UPLOAD_URL;
+  const endpoint = isCsv
+    ? CSV_UPLOAD_URL
+    : FILE_UPLOAD_URL;
 
-    const formData = new FormData();
-    formData.append("file", file);
+  const formData = new FormData();
+  formData.append("file", file);
 
-    try {
-      const res = await fetch(endpoint, {
-        method: "POST",
-        body: formData,
-      });
+  try {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      body: formData,
+    });
 
-      const data = await res.json();
+    const data = await res.json();
 
-      if (data.error) {
-        toast.error(data.error);
-        return;
-      }
-
-      toast.success(`${file.name} uploaded successfully`);
-
-      const { data: u } = await supabase.auth.getUser();
-
-      if (u.user) {
-        // User attachment message
-        await supabase.from("chat_history").insert({
-          user_id: u.user.id,
-          session_id: sessionId,
-          role: "user",
-          content: JSON.stringify({
-            type: "file",
-            fileName: file.name,
-          }),
-        });
-
-        // AI confirmation message
-        await supabase.from("chat_history").insert({
-          user_id: u.user.id,
-          session_id: sessionId,
-          role: "assistant",
-          content: JSON.stringify({
-            answer: `${file.name} uploaded successfully`,
-          }),
-        });
-
-        qc.invalidateQueries({
-          queryKey: ["chat", sessionId],
-        });
-      }
-    } catch (err) {
-      toast.error("Upload failed");
+    if (data.error) {
+      toast.error(data.error);
+      return;
     }
+
+    toast.success(
+      `${file.name} uploaded successfully`
+    );
+
+    const { data: u } =
+  await supabase.auth.getUser();
+
+  if (u.user) {
+
+    // User attachment message
+    await supabase
+      .from("chat_history")
+      .insert({
+        user_id: u.user.id,
+        session_id: sessionId,
+        role: "user",
+        content: JSON.stringify({
+          type: "file",
+          fileName: file.name
+        })
+      });
+  
+    // AI confirmation message
+    await supabase
+      .from("chat_history")
+      .insert({
+        user_id: u.user.id,
+        session_id: sessionId,
+        role: "assistant",
+        content: JSON.stringify({
+          answer: `${file.name} uploaded successfully`
+        })
+      });
+  
+    qc.invalidateQueries({
+      queryKey: ["chat", sessionId]
+    });
   }
+
+  } catch (err) {
+    toast.error("Upload failed");
+  }
+}
   function newChat() {
     const s = crypto.randomUUID();
     sessionStorage.setItem("chatSessionId", s);
@@ -240,8 +232,7 @@ function ChatPage() {
   function commitRename(id: string) {
     const name = renameValue.trim();
     const next = { ...titles };
-    if (name) next[id] = name;
-    else delete next[id];
+    if (name) next[id] = name; else delete next[id];
     setTitles(next);
     saveTitles(next);
     setRenamingId(null);
@@ -250,10 +241,7 @@ function ChatPage() {
     if (!confirm("Delete this chat? This cannot be undone.")) return;
     setMenuOpenFor(null);
     const { error } = await supabase.from("chat_history").delete().eq("session_id", id);
-    if (error) {
-      toast.error("Couldn't delete chat");
-      return;
-    }
+    if (error) { toast.error("Couldn't delete chat"); return; }
     const next = { ...titles };
     delete next[id];
     setTitles(next);
@@ -274,9 +262,7 @@ function ChatPage() {
           >
             + New chat
           </button>
-          <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            History
-          </div>
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">History</div>
           <div className="flex-1 space-y-1 overflow-auto">
             {sessions.length === 0 ? (
               <div className="rounded-lg border border-dashed border-border p-4 text-xs text-muted-foreground">
@@ -291,9 +277,7 @@ function ChatPage() {
                   <div
                     key={s.session_id}
                     className={`group/item relative rounded-lg border px-3 py-2 text-xs transition ${
-                      isActive
-                        ? "border-violet/50 bg-violet/10"
-                        : "border-transparent hover:border-border hover:bg-white/[0.05]"
+                      isActive ? "border-violet/50 bg-violet/10" : "border-transparent hover:border-border hover:bg-white/[0.05]"
                     }`}
                   >
                     {isRenaming ? (
@@ -308,18 +292,10 @@ function ChatPage() {
                           }}
                           className="min-w-0 flex-1 rounded border border-violet/40 bg-background/60 px-2 py-1 text-xs focus:outline-none"
                         />
-                        <button
-                          onClick={() => commitRename(s.session_id)}
-                          className="rounded p-1 text-emerald hover:bg-emerald/10"
-                          aria-label="Save"
-                        >
+                        <button onClick={() => commitRename(s.session_id)} className="rounded p-1 text-emerald hover:bg-emerald/10" aria-label="Save">
                           <Check size={12} />
                         </button>
-                        <button
-                          onClick={() => setRenamingId(null)}
-                          className="rounded p-1 text-muted-foreground hover:bg-white/10"
-                          aria-label="Cancel"
-                        >
+                        <button onClick={() => setRenamingId(null)} className="rounded p-1 text-muted-foreground hover:bg-white/10" aria-label="Cancel">
                           <X size={12} />
                         </button>
                       </div>
@@ -330,9 +306,7 @@ function ChatPage() {
                           className="block w-full pr-7 text-left"
                         >
                           <div className="truncate font-medium text-foreground">{title}</div>
-                          <div className="text-[10px] text-muted-foreground">
-                            {new Date(s.created_at).toLocaleDateString()}
-                          </div>
+                          <div className="text-[10px] text-muted-foreground">{new Date(s.created_at).toLocaleDateString()}</div>
                         </button>
                         <button
                           onClick={(e) => {
@@ -380,44 +354,43 @@ function ChatPage() {
                 <Brain size={18} className="text-white" />
               </div>
               <div className="min-w-0">
-                <h1 className="truncate font-display text-base font-bold md:text-lg">
-                  AI Chat Assistant
-                </h1>
-                <p className="hidden text-xs text-muted-foreground sm:block">
-                  Ask anything about your finances
-                </p>
+                <h1 className="truncate font-display text-base font-bold md:text-lg">AI Chat Assistant</h1>
+                <p className="hidden text-xs text-muted-foreground sm:block">Ask anything about your finances</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <input
-                id="file-upload"
-                type="file"
-                accept=".csv,.pdf,.docx,.txt"
-                onChange={handleCsvUpload}
-                className="hidden"
-              />
 
-              <button
-                onClick={() => document.getElementById("file-upload")?.click()}
-                className="rounded-md border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs"
-              >
-                Upload File
-              </button>
-            </div>
-          </header>
+            <input
+  id="file-upload"
+  type="file"
+  accept=".csv,.pdf,.docx,.txt"
+  onChange={handleCsvUpload}
+  className="hidden"
+/>
 
+<button
+  onClick={() =>
+    document.getElementById("file-upload")?.click()
+  }
+    className="rounded-md border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs"
+  >
+    Upload File
+  </button>
+
+  
+
+</div>
+</header>
+            
           <div ref={scrollRef} className="flex-1 space-y-5 overflow-auto px-3 py-4 md:px-5 md:py-6">
             {messages.length === 0 && !sending && (
               <div className="flex h-full flex-col items-center justify-center px-2 text-center">
                 <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl gradient-violet glow-violet">
                   <Sparkles className="text-white" size={24} />
                 </div>
-                <h2 className="font-display text-lg font-semibold md:text-xl">
-                  How can I help with your finances today?
-                </h2>
+                <h2 className="font-display text-lg font-semibold md:text-xl">How can I help with your finances today?</h2>
                 <p className="mt-2 max-w-md text-sm text-muted-foreground">
-                  Try asking: "How much did I spend on dining last month?" or "What's my biggest
-                  expense category?"
+                  Try asking: "How much did I spend on dining last month?" or "What's my biggest expense category?"
                 </p>
                 <div className="mt-6 grid w-full max-w-md gap-2 sm:grid-cols-2">
                   {[
@@ -447,9 +420,7 @@ function ChatPage() {
                   <Brain size={14} className="text-white" />
                 </div>
                 <div className="flex items-center gap-1.5 rounded-2xl glass px-4 py-3">
-                  <Dot />
-                  <Dot delay={0.15} />
-                  <Dot delay={0.3} />
+                  <Dot /><Dot delay={0.15} /><Dot delay={0.3} />
                 </div>
               </div>
             )}
@@ -457,21 +428,13 @@ function ChatPage() {
 
           <footer className="border-t border-white/[0.08] p-3 md:p-4">
             <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                send();
-              }}
+              onSubmit={(e) => { e.preventDefault(); send(); }}
               className="flex items-end gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-2 backdrop-blur-xl focus-within:border-violet/60"
             >
               <textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    send();
-                  }
-                }}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
                 placeholder="Ask a question..."
                 rows={1}
                 className="max-h-32 min-h-[44px] flex-1 resize-none bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none"
@@ -498,91 +461,90 @@ function MessageBubble({ msg }: { msg: Msg }) {
   const isUser = msg.role === "user";
   return (
     <div className={`flex items-start gap-2 md:gap-3 ${isUser ? "flex-row-reverse" : ""}`}>
-      <div
-        className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${isUser ? "glass" : "gradient-violet glow-violet"}`}
-      >
-        {isUser ? (
-          <span className="text-xs font-bold">You</span>
-        ) : (
-          <Brain size={14} className="text-white" />
-        )}
+      <div className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${isUser ? "glass" : "gradient-violet glow-violet"}`}>
+        {isUser ? <span className="text-xs font-bold">You</span> : <Brain size={14} className="text-white" />}
       </div>
-      <div
-        className={`group min-w-0 max-w-[85%] md:max-w-[80%] ${isUser ? "items-end text-right" : ""}`}
-      >
+      <div className={`group min-w-0 max-w-[85%] md:max-w-[80%] ${isUser ? "items-end text-right" : ""}`}>
         <div
           className={`whitespace-pre-wrap break-words rounded-2xl px-4 py-3 text-sm leading-relaxed ${
             isUser ? "gradient-violet text-white" : "glass"
           }`}
         >
           {(() => {
-            try {
-              const parsed = JSON.parse(msg.content);
+  try {
+    const parsed = JSON.parse(msg.content);
 
-              if (parsed.type === "file") {
-                return (
-                  <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2">
-                    <span className="text-lg">📄</span>
+    if (parsed.type === "file") {
+      return (
+        <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+          <span className="text-lg">📄</span>
+    
+          <div>
+            <div className="font-medium">
+              {parsed.fileName}
+            </div>
+    
+            <div className="text-xs opacity-70">
+              Uploaded document
+            </div>
+          </div>
+        </div>
+      );
+    }
 
-                    <div>
-                      <div className="font-medium">{parsed.fileName}</div>
+    if (parsed.show_table) {
+      return (
+        <div>
+          
+          <table className="border-collapse border border-gray-500 text-sm">
+            <thead>
+              <tr>
+                {parsed.result.columns.map((col: string) => (
+                  <th
+                    key={col}
+                    className="border px-2 py-1"
+                  >
+                    {col}
+                  </th>
+                ))}
+              </tr>
+            </thead>
 
-                      <div className="text-xs opacity-70">Uploaded document</div>
-                    </div>
-                  </div>
-                );
-              }
+            <tbody>
+              {parsed.result.rows.map(
+                (row: any[], rowIndex: number) => (
+                  <tr key={rowIndex}>
+                    {row.map(
+                      (cell: any, cellIndex: number) => (
+                        <td
+                          key={cellIndex}
+                          className="border px-2 py-1"
+                        >
+                          {String(cell)}
+                        </td>
+                      )
+                    )}
+                  </tr>
+                )
+              )}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+    if (parsed.answer) {
+      return parsed.answer;
+    }
+  } catch {}
 
-              if (parsed.show_table) {
-                return (
-                  <div>
-                    <table className="border-collapse border border-gray-500 text-sm">
-                      <thead>
-                        <tr>
-                          {parsed.result.columns.map((col: string) => (
-                            <th key={col} className="border px-2 py-1">
-                              {col}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-
-                      <tbody>
-                        {parsed.result.rows.map((row: any[], rowIndex: number) => (
-                          <tr key={rowIndex}>
-                            {row.map((cell: any, cellIndex: number) => (
-                              <td key={cellIndex} className="border px-2 py-1">
-                                {String(cell)}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                );
-              }
-              if (parsed.answer) {
-                return parsed.answer;
-              }
-            } catch {}
-
-            return msg.content;
-          })()}
+  return msg.content;
+})()}
         </div>
         <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground">
-          <span>
-            {new Date(msg.created_at).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </span>
+          <span>{new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
           {!isUser && (
             <button
-              onClick={() => {
-                navigator.clipboard.writeText(msg.content);
-                toast.success("Copied");
-              }}
+              onClick={() => { navigator.clipboard.writeText(msg.content); toast.success("Copied"); }}
               className="opacity-0 transition group-hover:opacity-100"
             >
               <Copy size={11} />

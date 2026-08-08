@@ -19,14 +19,9 @@ function ReportsPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="font-display text-3xl font-bold sm:text-4xl">Financial Report</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Monthly summary of your income, expenses and insights.
-            </p>
+            <p className="mt-1 text-sm text-muted-foreground">Monthly summary of your income, expenses and insights.</p>
           </div>
-          <button
-            onClick={() => window.print()}
-            className="inline-flex items-center gap-2 rounded-lg gradient-violet px-4 py-2.5 text-sm font-semibold text-white glow-violet"
-          >
+          <button onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-lg gradient-violet px-4 py-2.5 text-sm font-semibold text-white glow-violet">
             <Download size={16} /> Download PDF
           </button>
         </div>
@@ -39,9 +34,7 @@ function ReportsPage() {
               </div>
               <div>
                 <h2 className="font-display text-2xl font-bold">Monthly Report</h2>
-                <p className="text-xs text-muted-foreground">
-                  {new Date().toLocaleDateString("en", { month: "long", year: "numeric" })}
-                </p>
+                <p className="text-xs text-muted-foreground">{new Date().toLocaleDateString("en", { month: "long", year: "numeric" })}</p>
               </div>
             </div>
             <Printer className="text-muted-foreground" size={18} />
@@ -60,10 +53,7 @@ function ReportsPage() {
             ) : (
               <div className="space-y-2">
                 {r.topCats.map((c, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between rounded-lg border border-border bg-glass/50 px-3 py-2 text-sm"
-                  >
+                  <div key={i} className="flex items-center justify-between rounded-lg border border-border bg-glass/50 px-3 py-2 text-sm">
                     <span>{c.name}</span>
                     <span className="font-mono">{formatCurrency(c.value)}</span>
                   </div>
@@ -97,33 +87,20 @@ function Row({ label, value, accent }: { label: string; value: string; accent?: 
   return (
     <div className="flex items-center justify-between border-b border-border/50 py-2 text-sm last:border-0">
       <span className="text-muted-foreground">{label}</span>
-      <span className={`font-mono font-semibold ${accent ? "text-emerald text-lg" : ""}`}>
-        {value}
-      </span>
+      <span className={`font-mono font-semibold ${accent ? "text-emerald text-lg" : ""}`}>{value}</span>
     </div>
   );
 }
 
 function buildReport(txns: any[]) {
   const now = new Date();
-  const month = txns.filter(
-    (t) =>
-      new Date(t.occurred_on).getMonth() === now.getMonth() &&
-      new Date(t.occurred_on).getFullYear() === now.getFullYear(),
-  );
+  const month = txns.filter((t) => new Date(t.occurred_on).getMonth() === now.getMonth() && new Date(t.occurred_on).getFullYear() === now.getFullYear());
   const income = month.filter((t) => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
-  const expenses = month
-    .filter((t) => t.type === "expense")
-    .reduce((s, t) => s + Number(t.amount), 0);
+  const expenses = month.filter((t) => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
   const savings = income - expenses;
   const rate = income ? (savings / income) * 100 : 0;
   const catMap = new Map<string, number>();
-  for (const t of month)
-    if (t.type === "expense")
-      catMap.set(t.category, (catMap.get(t.category) ?? 0) + Number(t.amount));
-  const topCats = [...catMap.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([name, value]) => ({ name, value }));
+  for (const t of month) if (t.type === "expense") catMap.set(t.category, (catMap.get(t.category) ?? 0) + Number(t.amount));
+  const topCats = [...catMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, value]) => ({ name, value }));
   return { income, expenses, savings, rate, topCats };
 }

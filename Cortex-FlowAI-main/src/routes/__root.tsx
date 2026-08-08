@@ -1,4 +1,9 @@
-import { QueryClient, QueryClientProvider, MutationCache, QueryCache } from "@tanstack/react-query";
+import {
+  QueryClient,
+  QueryClientProvider,
+  MutationCache,
+  QueryCache,
+} from "@tanstack/react-query";
 import {
   Outlet,
   Link,
@@ -34,9 +39,7 @@ function NotFoundComponent() {
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   const router = useRouter();
-  useEffect(() => {
-    reportError(error, { boundary: "tanstack_root_error_component" });
-  }, [error]);
+  useEffect(() => { reportError(error, { boundary: "tanstack_root_error_component" }); }, [error]);
   return (
     <div className="grain flex min-h-screen items-center justify-center px-4">
       <div className="max-w-md rounded-2xl border border-border bg-glass p-8 text-center backdrop-blur-xl">
@@ -44,17 +47,12 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         <p className="mt-2 text-sm text-muted-foreground">{error.message}</p>
         <div className="mt-6 flex justify-center gap-2">
           <button
-            onClick={() => {
-              router.invalidate();
-              reset();
-            }}
+            onClick={() => { router.invalidate(); reset(); }}
             className="rounded-md gradient-violet px-4 py-2 text-sm font-medium text-white"
           >
             Try again
           </button>
-          <a href="/" className="rounded-md border border-border px-4 py-2 text-sm font-medium">
-            Go home
-          </a>
+          <a href="/" className="rounded-md border border-border px-4 py-2 text-sm font-medium">Go home</a>
         </div>
       </div>
     </div>
@@ -67,16 +65,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Cortex Flow — Financial Intelligence" },
-      {
-        name: "description",
-        content: "AI-powered personal finance. Turn your data into financial wisdom.",
-      },
+      { name: "description", content: "AI-powered personal finance. Turn your data into financial wisdom." },
       { name: "theme-color", content: "#060818" },
       { property: "og:title", content: "Cortex Flow — Financial Intelligence" },
-      {
-        property: "og:description",
-        content: "AI-powered personal finance. Turn your data into financial wisdom.",
-      },
+      { property: "og:description", content: "AI-powered personal finance. Turn your data into financial wisdom." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],

@@ -7,19 +7,8 @@ export function useProfile() {
     queryFn: async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return null;
-      const { data } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", u.user.id)
-        .maybeSingle();
-      return (
-        data ?? {
-          id: u.user.id,
-          name: u.user.email?.split("@")[0] ?? "",
-          email: u.user.email ?? "",
-          avatar_url: null,
-        }
-      );
+      const { data } = await supabase.from("profiles").select("*").eq("id", u.user.id).maybeSingle();
+      return data ?? { id: u.user.id, name: u.user.email?.split("@")[0] ?? "", email: u.user.email ?? "", avatar_url: null };
     },
   });
 }
@@ -51,9 +40,5 @@ export function useTransactions() {
 }
 
 export function formatCurrency(n: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(n);
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 }

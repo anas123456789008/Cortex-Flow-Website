@@ -22,9 +22,7 @@ function SettingsPage() {
   const [notifEmail, setNotifEmail] = useState(true);
   const [notifWeekly, setNotifWeekly] = useState(true);
 
-  useEffect(() => {
-    if (profile?.name) setName(profile.name);
-  }, [profile?.name]);
+  useEffect(() => { if (profile?.name) setName(profile.name); }, [profile?.name]);
 
   async function saveProfile() {
     if (!profile) return;
@@ -75,11 +73,7 @@ function SettingsPage() {
           <div className="mt-5 space-y-3">
             <Label>Full name</Label>
             <Input value={name} onChange={setName} />
-            <button
-              onClick={saveProfile}
-              disabled={saving}
-              className="inline-flex items-center gap-2 rounded-lg gradient-violet px-4 py-2 text-sm font-semibold text-white"
-            >
+            <button onClick={saveProfile} disabled={saving} className="inline-flex items-center gap-2 rounded-lg gradient-violet px-4 py-2 text-sm font-semibold text-white">
               {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save
             </button>
           </div>
@@ -87,16 +81,8 @@ function SettingsPage() {
 
         <Card title="Change password">
           <Label>New password</Label>
-          <Input
-            type="password"
-            value={newPwd}
-            onChange={setNewPwd}
-            placeholder="At least 6 characters"
-          />
-          <button
-            onClick={changePassword}
-            className="mt-3 rounded-lg border border-border bg-glass px-4 py-2 text-sm font-semibold glass-hover"
-          >
+          <Input type="password" value={newPwd} onChange={setNewPwd} placeholder="At least 6 characters" />
+          <button onClick={changePassword} className="mt-3 rounded-lg border border-border bg-glass px-4 py-2 text-sm font-semibold glass-hover">
             Update password
           </button>
         </Card>
@@ -110,13 +96,8 @@ function SettingsPage() {
           <div className="flex items-center gap-2 text-rose">
             <AlertTriangle size={16} /> <h2 className="font-display font-semibold">Danger zone</h2>
           </div>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Permanently delete your account and all associated data.
-          </p>
-          <button
-            onClick={deleteAccount}
-            className="mt-4 rounded-lg border border-rose/40 bg-rose/10 px-4 py-2 text-sm font-semibold text-rose hover:bg-rose/20"
-          >
+          <p className="mt-2 text-sm text-muted-foreground">Permanently delete your account and all associated data.</p>
+          <button onClick={deleteAccount} className="mt-4 rounded-lg border border-rose/40 bg-rose/10 px-4 py-2 text-sm font-semibold text-rose hover:bg-rose/20">
             Delete account
           </button>
         </div>
@@ -134,23 +115,9 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   );
 }
 function Label({ children }: { children: React.ReactNode }) {
-  return (
-    <label className="block text-xs font-medium uppercase tracking-wider text-muted-foreground">
-      {children}
-    </label>
-  );
+  return <label className="block text-xs font-medium uppercase tracking-wider text-muted-foreground">{children}</label>;
 }
-function Input({
-  value,
-  onChange,
-  type = "text",
-  placeholder,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  type?: string;
-  placeholder?: string;
-}) {
+function Input({ value, onChange, type = "text", placeholder }: { value: string; onChange: (v: string) => void; type?: string; placeholder?: string }) {
   return (
     <input
       type={type}
@@ -161,27 +128,12 @@ function Input({
     />
   );
 }
-function Toggle({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: boolean;
-  onChange: (v: boolean) => void;
-}) {
+function Toggle({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
   return (
-    <button
-      onClick={() => onChange(!value)}
-      className="flex w-full items-center justify-between border-b border-border/40 py-3 text-sm last:border-0"
-    >
+    <button onClick={() => onChange(!value)} className="flex w-full items-center justify-between border-b border-border/40 py-3 text-sm last:border-0">
       <span>{label}</span>
-      <span
-        className={`relative h-5 w-9 rounded-full transition ${value ? "gradient-violet" : "bg-white/10"}`}
-      >
-        <span
-          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition ${value ? "left-[18px]" : "left-0.5"}`}
-        />
+      <span className={`relative h-5 w-9 rounded-full transition ${value ? "gradient-violet" : "bg-white/10"}`}>
+        <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition ${value ? "left-[18px]" : "left-0.5"}`} />
       </span>
     </button>
   );
