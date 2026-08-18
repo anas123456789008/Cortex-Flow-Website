@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 const InputOTP = React.forwardRef<
   React.ElementRef<typeof OTPInput>,
   React.ComponentPropsWithoutRef<typeof OTPInput>
->(({ className, containerClassName, ...props }, ref) => (
+>(({ className, containerClassName, maxLength, ...props }, ref) => (
   <OTPInput
     ref={ref}
     containerClassName={cn(
@@ -15,6 +15,7 @@ const InputOTP = React.forwardRef<
       containerClassName,
     )}
     className={cn("disabled:cursor-not-allowed", className)}
+    maxLength={maxLength ?? 6}
     {...props}
   />
 ));
@@ -59,11 +60,48 @@ InputOTPSlot.displayName = "InputOTPSlot";
 const InputOTPSeparator = React.forwardRef<
   React.ElementRef<"div">,
   React.ComponentPropsWithoutRef<"div">
->(({ ...props }, ref) => (
+>((props, ref) => (
   <div ref={ref} role="separator" {...props}>
     <Minus />
   </div>
 ));
 InputOTPSeparator.displayName = "InputOTPSeparator";
 
-export { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator };
+/**
+ * Countdown hook for OTP resend logic.
+ * Counts down from `seconds`, exposes remaining time and whether resend is allowed.
+ */
+function useOTPTimer(seconds: number = 30) {
+  const [timeLeft, setTimeLeft] = React.useState(seconds);
+  const [isRunning, setIsRunning] = React.useState(true);
+
+  React.useEffect(() => {
+    if (!isRunning) return;
+
+    if (timeLeft <= 0) {
+      setIsRunning(false);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => prev - 1);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [timeLeft, isRunning]);
+
+  const restart = React.useCallback(() => {
+    setTimeLeft(seconds);
+    setIsRunning(true);
+  }, [seconds]);
+
+  return { timeLeft, isRunning, canResend: !isRunning, restart };
+}
+
+export {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+  InputOTPSeparator,
+  useOTPTimer,
+};

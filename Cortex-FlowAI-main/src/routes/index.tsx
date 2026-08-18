@@ -2,7 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Brain, BarChart3, MessageSquare, Sparkles, ShieldCheck, Zap } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { AuroraBackground } from "@/components/aurora-background";
-import contexFlowLogo from "@/assets/contex-flow-logo.webp.asset.json";
+import { FaUser } from "react-icons/fa";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -24,9 +25,8 @@ function Landing() {
         <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
           <Brand />
           <div className="flex items-center gap-3">
-            <Link to="/auth" className="text-sm font-medium text-muted-foreground hover:text-foreground">Sign in</Link>
-            <Link to="/auth" className="rounded-lg gradient-violet px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 glow-violet">
-              Get started
+            <Link to="/auth" className="rounded-lg gradient-violet px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 glow-violet inline-flex items-center gap-2">
+              <FaUser size={18} />Sign In
             </Link>
           </div>
         </header>
@@ -35,11 +35,7 @@ function Landing() {
           <div className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-violet/30 bg-violet/10 px-3 py-1 text-xs font-medium text-violet backdrop-blur">
             <Sparkles size={12} /> Powered by Text-to-SQL + RAG
           </div>
-          <img
-            src={contexFlowLogo.url}
-            alt="Contex Flow"
-            className="mx-auto mb-6 h-auto w-48 md:w-64 object-contain drop-shadow-[0_0_30px_rgba(139,92,246,0.4)]"
-          />
+
           <h1 className="font-display text-5xl font-bold leading-[1.05] tracking-tight md:text-7xl">
             Turn data into <span className="gradient-text">financial wisdom</span>.
           </h1>
@@ -49,7 +45,7 @@ function Landing() {
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
             <Link
               to="/auth"
-              className="inline-flex items-center gap-2 rounded-xl gradient-violet px-6 py-3 text-sm font-semibold text-white transition hover:translate-y-[-2px] glow-violet"
+              className="inline-flex items-center gap-2 rounded-xl gradient-violet px-6 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 glow-violet"
             >
               Start free <ArrowRight size={16} />
             </Link>

@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Brand } from "@/components/brand";
 import { AuroraBackground } from "@/components/aurora-background";
 import { toast } from "sonner";
+import { BsFillShieldLockFill } from "react-icons/bs";
 
 export const Route = createFileRoute("/reset-password")({
   head: () => ({ meta: [{ title: "Reset password · Cortex Flow" }] }),
@@ -50,7 +51,7 @@ function ResetPage() {
               <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="New password" className="w-full rounded-lg border border-border bg-input px-3 py-2.5 text-sm focus:border-violet focus:outline-none" />
               <input type="password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Confirm password" className="w-full rounded-lg border border-border bg-input px-3 py-2.5 text-sm focus:border-violet focus:outline-none" />
               <button disabled={loading} className="flex w-full items-center justify-center gap-2 rounded-lg gradient-violet px-4 py-2.5 text-sm font-semibold text-white glow-violet">
-                {loading && <Loader2 size={14} className="animate-spin" />} Update password
+                {loading && <Loader2 size={14} className="animate-spin" />}<BsFillShieldLockFill size={12} /> Update password
               </button>
             </form>
           )}

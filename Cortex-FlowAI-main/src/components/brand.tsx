@@ -1,4 +1,4 @@
-import logoAsset from "@/assets/logo.jpeg.asset.json";
+import logo from "@/assets/logo.jpg";
 
 export function Brand({ size = "md", showText = true }: { size?: "sm" | "md" | "lg"; showText?: boolean }) {
   const dim = size === "sm" ? 32 : size === "lg" ? 56 : 44;
@@ -6,7 +6,7 @@ export function Brand({ size = "md", showText = true }: { size?: "sm" | "md" | "
   return (
     <div className="flex items-center gap-2.5">
       <img
-        src={logoAsset.url}
+        src={logo}
         alt="Cortex Flow"
         className="shrink-0 rounded-lg object-contain"
         style={{ width: dim, height: dim }}
