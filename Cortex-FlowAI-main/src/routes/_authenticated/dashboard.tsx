@@ -56,7 +56,7 @@ function DashboardPage() {
           </div>
           <Link
             to="/documents"
-            className="inline-flex shrink-0 items-center gap-2 rounded-lg gradient-violet px-4 py-2.5 text-sm font-semibold text-white glow-violet transition hover:translate-y-[-1px]"
+            className="inline-flex shrink-0 items-center gap-2 rounded-lg gradient-violet px-4 py-2.5 text-sm font-semibold text-white glow-violet transition hover:-translate-y-px"
           >
             <Upload size={16} /> Upload Document
           </Link>
@@ -135,7 +135,7 @@ function DashboardPage() {
 
         {/* AI insight + Recent docs */}
         <div className="grid gap-4 lg:grid-cols-3">
-          <div className="relative overflow-hidden rounded-2xl border border-violet/30 bg-gradient-to-br from-violet/15 via-indigo/10 to-transparent p-6 backdrop-blur-xl lg:col-span-2">
+          <div className="relative overflow-hidden rounded-2xl border border-violet/30 bg-linear-to-br from-violet/15 via-indigo/10 to-transparent p-6 backdrop-blur-xl lg:col-span-2">
             <div className="absolute left-0 top-0 h-full w-1 gradient-violet" />
             <div className="flex items-start gap-4">
               <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg gradient-violet glow-violet">
