@@ -8,8 +8,13 @@ import { AuroraBackground } from "@/components/aurora-background";
 import { FcGoogle } from "react-icons/fc";
 import { FaKey } from "react-icons/fa";
 import type { LucideIcon } from "lucide-react";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
 
-type Mode = "signin" | "signup" | "forgot";
+type Mode = "signin" | "signup" | "forgot" | "verify";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -37,6 +42,8 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [otp, setOtp] = useState("");
+  const [verifyLoading, setVerifyLoading] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   // Clear form errors when mode changes
@@ -139,12 +146,12 @@ function AuthPage() {
 
     // Check if user was created but email confirmation is required
     if (data.user && !data.session) {
-      toast.success("Verification email sent! Please check your inbox.");
+      toast.success("Verification code sent! Check your inbox.");
       setName("");
-      setEmail("");
       setPassword("");
       setConfirm("");
-      setMode("signin");
+      setOtp("");
+      setMode("verify");
       return;
     }
 
@@ -188,6 +195,53 @@ function AuthPage() {
     setMode("signin");
   };
 
+  const handleVerifyOtp = async () => {
+    if (otp.length !== 6) {
+      throw new Error("Please enter the 6-digit code.");
+    }
+
+    const { error } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token: otp,
+      type: "signup",
+    });
+
+    if (error) {
+      if (error.message.toLowerCase().includes("expired")) {
+        throw new Error("This code has expired. Please request a new one.");
+      }
+      if (error.message.toLowerCase().includes("invalid")) {
+        throw new Error("Incorrect code. Please try again.");
+      }
+      throw error;
+    }
+
+    toast.success("Email verified! Welcome to CortexFlow.");
+    setEmail("");
+    setOtp("");
+    await navigate({ to: "/dashboard" });
+  };
+
+  const handleResendOtp = async () => {
+    if (!validateEmail(email)) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+    setVerifyLoading(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: email.trim(),
+      });
+      if (error) throw error;
+      toast.success("A new code has been sent to your email.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to resend code.");
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -203,6 +257,9 @@ function AuthPage() {
           break;
         case "forgot":
           await handleForgotPassword();
+          break;
+        case "verify":
+          await handleVerifyOtp();
           break;
       }
     } catch (err) {
@@ -272,6 +329,8 @@ function AuthPage() {
         return <UserPlus size={18} />;
       case "forgot":
         return <Send size={18} />;
+      case "verify":
+        return <UserPlus size={18} />;
       default:
         return null;
     }
@@ -285,6 +344,8 @@ function AuthPage() {
         return "Create account";
       case "forgot":
         return "Send reset link";
+      case "verify":
+        return "Verify email";
       default:
         return "";
     }
@@ -308,14 +369,44 @@ function AuthPage() {
             {mode === "signin" && "Welcome back"}
             {mode === "signup" && "Create your account"}
             {mode === "forgot" && "Reset password"}
+            {mode === "verify" && "Check your email"}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground text-center">
             {mode === "signin" && "Sign in to your Cortex dashboard"}
             {mode === "signup" && "Start turning your data into insights"}
             {mode === "forgot" && "We'll email you a reset link"}
+            {mode === "verify" && (
+              <>
+                Enter the 6-digit code we sent to{" "}
+                <span className="font-medium text-foreground">{email}</span>
+              </>
+            )}
           </p>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            {mode === "verify" && (
+              <div className="flex flex-col items-center gap-4">
+                <InputOTP maxLength={6} value={otp} onChange={setOtp}>
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                  </InputOTPGroup>
+                </InputOTP>
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  disabled={verifyLoading}
+                  className="text-xs text-violet-600 hover:underline transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {verifyLoading ? "Resending..." : "Didn't get a code? Resend"}
+                </button>
+              </div>
+            )}
+
             {mode === "signup" && (
               <div>
                 <Field
@@ -333,20 +424,22 @@ function AuthPage() {
               </div>
             )}
 
-            <div>
-              <Field
-                icon={Mail}
-                type="email"
-                placeholder="Email address"
-                value={email}
-                onChange={setEmail}
-                autoComplete={mode === "signup" ? "email" : "email"}
-                required
-              />
-              {formErrors.email && (
-                <p className="mt-1 text-xs text-red-500">{formErrors.email}</p>
-              )}
-            </div>
+            {mode !== "verify" && (
+              <div>
+                <Field
+                  icon={Mail}
+                  type="email"
+                  placeholder="Email address"
+                  value={email}
+                  onChange={setEmail}
+                  autoComplete="email"
+                  required
+                />
+                {formErrors.email && (
+                  <p className="mt-1 text-xs text-red-500">{formErrors.email}</p>
+                )}
+              </div>
+            )}
 
             {mode === "forgot" && (
               <p className="-mt-2 text-xs text-muted-foreground">
@@ -354,7 +447,7 @@ function AuthPage() {
               </p>
             )}
 
-            {mode !== "forgot" && (
+            {mode !== "forgot" && mode !== "verify" && (
               <div>
                 <div className="relative">
                   <Field
@@ -436,7 +529,7 @@ function AuthPage() {
             </button>
           </form>
 
-          {mode !== "forgot" && (
+          {mode !== "forgot" && mode !== "verify" && (
             <>
               <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
                 <div className="h-px flex-1 bg-border" /> or{" "}
@@ -496,6 +589,18 @@ function AuthPage() {
             {mode === "forgot" && (
               <button
                 onClick={() => setMode("signin")}
+                type="button"
+                className="text-violet-600 hover:underline transition-colors cursor-pointer"
+              >
+                Back to sign in
+              </button>
+            )}
+            {mode === "verify" && (
+              <button
+                onClick={() => {
+                  setOtp("");
+                  setMode("signin");
+                }}
                 type="button"
                 className="text-violet-600 hover:underline transition-colors cursor-pointer"
               >
