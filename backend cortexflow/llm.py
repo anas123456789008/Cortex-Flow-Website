@@ -10,7 +10,7 @@ from financial_insights import financial_context
 
 load_dotenv()
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+genai.configure(api_key=os.getenv("KIMI_API_KEY"))
 
 model = genai.GenerativeModel("gemini-2.5-flash")
 
