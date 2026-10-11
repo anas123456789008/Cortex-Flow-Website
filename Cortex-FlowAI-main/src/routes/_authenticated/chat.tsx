@@ -20,9 +20,15 @@ export const Route = createFileRoute("/_authenticated/chat")({
   component: ChatPage,
 });
 
-const API_URL = "http://127.0.0.1:8000/chat";
-const FILE_UPLOAD_URL = "http://127.0.0.1:8000/upload-file";
-const CSV_UPLOAD_URL = "http://127.0.0.1:8000/upload-csv";
+// In production the backend address MUST come from the VITE_API_BASE_URL variable
+// (Vercel -> Project -> Settings -> Environment Variables, then redeploy).
+// localhost is only used while you run the site on your own computer.
+const API_BASE_URL: string = (
+  import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "http://127.0.0.1:8000" : "")
+).replace(/\/+$/, "");
+const API_URL = `${API_BASE_URL}/chat`;
+const FILE_UPLOAD_URL = `${API_BASE_URL}/upload-file`;
+const CSV_UPLOAD_URL = `${API_BASE_URL}/upload-csv`;
 
 type Msg = { id: string; role: "user" | "assistant"; content: string; created_at: string };
 
@@ -81,10 +87,17 @@ function ChatPage() {
   async function send() {
     const text = input.trim();
     if (!text || sending) return;
+    if (!API_BASE_URL) {
+      toast.error("AI service address is not set. Add VITE_API_BASE_URL in Vercel and redeploy.");
+      return;
+    }
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) {
+      toast.error("Please sign in again");
+      return;
+    }
     setInput("");
     setSending(true);
-    const { data: u } = await supabase.auth.getUser();
-    if (!u.user) return;
 
     await supabase.from("chat_history").insert({
       user_id: u.user.id, session_id: sessionId, role: "user", content: text,
@@ -100,17 +113,16 @@ function ChatPage() {
         body: JSON.stringify({
           message: text,
         }),
+        signal: AbortSignal.timeout(90_000), // free hosts can take a while to wake up
       });
-    
+
       if (!res.ok) {
         throw new Error(`Server error: ${res.status}`);
       }
-      
+
       const data = await res.json();
       console.log("API Response:", data);
-    
-      const reply = data.answer;
-    
+
       await supabase.from("chat_history").insert({
         user_id: u.user.id,
         session_id: sessionId,
@@ -121,91 +133,104 @@ function ChatPage() {
           show_table: data.show_table
         })
       });
-    
+
       qc.invalidateQueries({ queryKey: ["chat", sessionId] });
       qc.invalidateQueries({ queryKey: ["chat-sessions"] });
-    
+
     } catch (e) {
-      toast.error("Couldn't reach the AI service");
+      console.error("Chat request failed:", e);
+      if (e instanceof DOMException && e.name === "TimeoutError") {
+        toast.error("The AI service took too long. It may be waking up, please try again.");
+      } else if (e instanceof TypeError) {
+        // fetch throws TypeError when the server cannot be reached (offline, blocked, CORS)
+        toast.error("Couldn't reach the AI service. Check that the backend is online.");
+      } else {
+        toast.error(e instanceof Error ? e.message : "The AI service returned an error");
+      }
     } finally {
       setSending(false);
     }
   }
 
-async function handleCsvUpload(
-  e: React.ChangeEvent<HTMLInputElement>
-) {
-  const file = e.target.files?.[0];
+  async function handleCsvUpload(
+    e: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file = e.target.files?.[0];
 
-  if (!file) return;
-
-  const isCsv = file.name
-    .toLowerCase()
-    .endsWith(".csv");
-
-  const endpoint = isCsv
-    ? CSV_UPLOAD_URL
-    : FILE_UPLOAD_URL;
-
-  const formData = new FormData();
-  formData.append("file", file);
-
-  try {
-    const res = await fetch(endpoint, {
-      method: "POST",
-      body: formData,
-    });
-
-    const data = await res.json();
-
-    if (data.error) {
-      toast.error(data.error);
+    if (!file) return;
+    if (!API_BASE_URL) {
+      toast.error("AI service address is not set. Add VITE_API_BASE_URL in Vercel and redeploy.");
       return;
     }
 
-    toast.success(
-      `${file.name} uploaded successfully`
-    );
+    const isCsv = file.name
+      .toLowerCase()
+      .endsWith(".csv");
 
-    const { data: u } =
-  await supabase.auth.getUser();
+    const endpoint = isCsv
+      ? CSV_UPLOAD_URL
+      : FILE_UPLOAD_URL;
 
-  if (u.user) {
+    const formData = new FormData();
+    formData.append("file", file);
 
-    // User attachment message
-    await supabase
-      .from("chat_history")
-      .insert({
-        user_id: u.user.id,
-        session_id: sessionId,
-        role: "user",
-        content: JSON.stringify({
-          type: "file",
-          fileName: file.name
-        })
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        body: formData,
       });
-  
-    // AI confirmation message
-    await supabase
-      .from("chat_history")
-      .insert({
-        user_id: u.user.id,
-        session_id: sessionId,
-        role: "assistant",
-        content: JSON.stringify({
-          answer: `${file.name} uploaded successfully`
-        })
-      });
-  
-    qc.invalidateQueries({
-      queryKey: ["chat", sessionId]
-    });
-  }
 
-  } catch (err) {
-    toast.error("Upload failed");
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      const data = await res.json();
+
+      if (data.error) {
+        toast.error(data.error);
+        return;
+      }
+
+      toast.success(
+        `${file.name} uploaded successfully`
+      );
+
+      const { data: u } =
+        await supabase.auth.getUser();
+
+      if (u.user) {
+
+        // User attachment message
+        await supabase
+          .from("chat_history")
+          .insert({
+            user_id: u.user.id,
+            session_id: sessionId,
+            role: "user",
+            content: JSON.stringify({
+              type: "file",
+              fileName: file.name
+            })
+          });
+
+        // AI confirmation message
+        await supabase
+          .from("chat_history")
+          .insert({
+            user_id: u.user.id,
+            session_id: sessionId,
+            role: "assistant",
+            content: JSON.stringify({
+              answer: `${file.name} uploaded successfully`
+            })
+          });
+
+        qc.invalidateQueries({
+          queryKey: ["chat", sessionId]
+        });
+      }
+
+    } catch (err) {
+      toast.error("Upload failed");
+    }
   }
-}
   function newChat() {
     const s = crypto.randomUUID();
     sessionStorage.setItem("chatSessionId", s);
@@ -276,9 +301,8 @@ async function handleCsvUpload(
                 return (
                   <div
                     key={s.session_id}
-                    className={`group/item relative rounded-lg border px-3 py-2 text-xs transition ${
-                      isActive ? "border-violet/50 bg-violet/10" : "border-transparent hover:border-border hover:bg-white/[0.05]"
-                    }`}
+                    className={`group/item relative rounded-lg border px-3 py-2 text-xs transition ${isActive ? "border-violet/50 bg-violet/10" : "border-transparent hover:border-border hover:bg-white/[0.05]"
+                      }`}
                   >
                     {isRenaming ? (
                       <div className="flex items-center gap-1">
@@ -360,28 +384,28 @@ async function handleCsvUpload(
             </div>
             <div className="flex items-center gap-2">
 
-            <input
-  id="file-upload"
-  type="file"
-  accept=".csv,.pdf,.docx,.txt"
-  onChange={handleCsvUpload}
-  className="hidden"
-/>
+              <input
+                id="file-upload"
+                type="file"
+                accept=".csv,.pdf,.docx,.txt"
+                onChange={handleCsvUpload}
+                className="hidden"
+              />
 
-<button
-  onClick={() =>
-    document.getElementById("file-upload")?.click()
-  }
-    className="rounded-md border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs"
-  >
-    Upload File
-  </button>
+              <button
+                onClick={() =>
+                  document.getElementById("file-upload")?.click()
+                }
+                className="rounded-md border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs"
+              >
+                Upload File
+              </button>
 
-  
 
-</div>
-</header>
-            
+
+            </div>
+          </header>
+
           <div ref={scrollRef} className="flex-1 space-y-5 overflow-auto px-3 py-4 md:px-5 md:py-6">
             {messages.length === 0 && !sending && (
               <div className="flex h-full flex-col items-center justify-center px-2 text-center">
@@ -466,79 +490,78 @@ function MessageBubble({ msg }: { msg: Msg }) {
       </div>
       <div className={`group min-w-0 max-w-[85%] md:max-w-[80%] ${isUser ? "items-end text-right" : ""}`}>
         <div
-          className={`whitespace-pre-wrap break-words rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-            isUser ? "gradient-violet text-white" : "glass"
-          }`}
+          className={`whitespace-pre-wrap break-words rounded-2xl px-4 py-3 text-sm leading-relaxed ${isUser ? "gradient-violet text-white" : "glass"
+            }`}
         >
           {(() => {
-  try {
-    const parsed = JSON.parse(msg.content);
+            try {
+              const parsed = JSON.parse(msg.content);
 
-    if (parsed.type === "file") {
-      return (
-        <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2">
-          <span className="text-lg">📄</span>
-    
-          <div>
-            <div className="font-medium">
-              {parsed.fileName}
-            </div>
-    
-            <div className="text-xs opacity-70">
-              Uploaded document
-            </div>
-          </div>
-        </div>
-      );
-    }
+              if (parsed.type === "file") {
+                return (
+                  <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+                    <span className="text-lg">📄</span>
 
-    if (parsed.show_table) {
-      return (
-        <div>
-          
-          <table className="border-collapse border border-gray-500 text-sm">
-            <thead>
-              <tr>
-                {parsed.result.columns.map((col: string) => (
-                  <th
-                    key={col}
-                    className="border px-2 py-1"
-                  >
-                    {col}
-                  </th>
-                ))}
-              </tr>
-            </thead>
+                    <div>
+                      <div className="font-medium">
+                        {parsed.fileName}
+                      </div>
 
-            <tbody>
-              {parsed.result.rows.map(
-                (row: any[], rowIndex: number) => (
-                  <tr key={rowIndex}>
-                    {row.map(
-                      (cell: any, cellIndex: number) => (
-                        <td
-                          key={cellIndex}
-                          className="border px-2 py-1"
-                        >
-                          {String(cell)}
-                        </td>
-                      )
-                    )}
-                  </tr>
-                )
-              )}
-            </tbody>
-          </table>
-        </div>
-      );
-    }
-    if (parsed.answer) {
-      return parsed.answer;
-    }
-  } catch {}
+                      <div className="text-xs opacity-70">
+                        Uploaded document
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
 
-  return msg.content;
-})()}
+              if (parsed.show_table) {
+                return (
+                  <div>
+
+                    <table className="border-collapse border border-gray-500 text-sm">
+                      <thead>
+                        <tr>
+                          {parsed.result.columns.map((col: string) => (
+                            <th
+                              key={col}
+                              className="border px-2 py-1"
+                            >
+                              {col}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {parsed.result.rows.map(
+                          (row: any[], rowIndex: number) => (
+                            <tr key={rowIndex}>
+                              {row.map(
+                                (cell: any, cellIndex: number) => (
+                                  <td
+                                    key={cellIndex}
+                                    className="border px-2 py-1"
+                                  >
+                                    {String(cell)}
+                                  </td>
+                                )
+                              )}
+                            </tr>
+                          )
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              }
+              if (parsed.answer) {
+                return parsed.answer;
+              }
+            } catch { }
+
+            return msg.content;
+          })()}
         </div>
         <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground">
           <span>{new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>

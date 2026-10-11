@@ -19,9 +19,10 @@ function loadTitles() {
 function saveTitles(t) {
 	if (typeof window !== "undefined") localStorage.setItem(TITLES_KEY, JSON.stringify(t));
 }
-var API_URL = "http://127.0.0.1:8000/chat";
-var FILE_UPLOAD_URL = "http://127.0.0.1:8000/upload-file";
-var CSV_UPLOAD_URL = "http://127.0.0.1:8000/upload-csv";
+var API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "http://127.0.0.1:8000" : "")).replace(/\/+$/, "");
+var API_URL = `${API_BASE_URL}/chat`;
+var FILE_UPLOAD_URL = `${API_BASE_URL}/upload-file`;
+var CSV_UPLOAD_URL = `${API_BASE_URL}/upload-csv`;
 function getSessionId() {
 	if (typeof window === "undefined") return "default";
 	let s = sessionStorage.getItem("chatSessionId");
@@ -71,10 +72,17 @@ function ChatPage() {
 	async function send() {
 		const text = input.trim();
 		if (!text || sending) return;
+		if (!API_BASE_URL) {
+			toast.error("AI service address is not set. Add VITE_API_BASE_URL in Vercel and redeploy.");
+			return;
+		}
+		const { data: u } = await supabase.auth.getUser();
+		if (!u.user) {
+			toast.error("Please sign in again");
+			return;
+		}
 		setInput("");
 		setSending(true);
-		const { data: u } = await supabase.auth.getUser();
-		if (!u.user) return;
 		await supabase.from("chat_history").insert({
 			user_id: u.user.id,
 			session_id: sessionId,
@@ -86,12 +94,12 @@ function ChatPage() {
 			const res = await fetch(API_URL, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ message: text })
+				body: JSON.stringify({ message: text }),
+				signal: AbortSignal.timeout(9e4)
 			});
 			if (!res.ok) throw new Error(`Server error: ${res.status}`);
 			const data = await res.json();
 			console.log("API Response:", data);
-			data.answer;
 			await supabase.from("chat_history").insert({
 				user_id: u.user.id,
 				session_id: sessionId,
@@ -105,7 +113,10 @@ function ChatPage() {
 			qc.invalidateQueries({ queryKey: ["chat", sessionId] });
 			qc.invalidateQueries({ queryKey: ["chat-sessions"] });
 		} catch (e) {
-			toast.error("Couldn't reach the AI service");
+			console.error("Chat request failed:", e);
+			if (e instanceof DOMException && e.name === "TimeoutError") toast.error("The AI service took too long. It may be waking up, please try again.");
+			else if (e instanceof TypeError) toast.error("Couldn't reach the AI service. Check that the backend is online.");
+			else toast.error(e instanceof Error ? e.message : "The AI service returned an error");
 		} finally {
 			setSending(false);
 		}
@@ -113,14 +124,20 @@ function ChatPage() {
 	async function handleCsvUpload(e) {
 		const file = e.target.files?.[0];
 		if (!file) return;
+		if (!API_BASE_URL) {
+			toast.error("AI service address is not set. Add VITE_API_BASE_URL in Vercel and redeploy.");
+			return;
+		}
 		const endpoint = file.name.toLowerCase().endsWith(".csv") ? CSV_UPLOAD_URL : FILE_UPLOAD_URL;
 		const formData = new FormData();
 		formData.append("file", file);
 		try {
-			const data = await (await fetch(endpoint, {
+			const res = await fetch(endpoint, {
 				method: "POST",
 				body: formData
-			})).json();
+			});
+			if (!res.ok) throw new Error(`Server error: ${res.status}`);
+			const data = await res.json();
 			if (data.error) {
 				toast.error(data.error);
 				return;
@@ -194,11 +211,12 @@ function ChatPage() {
 		if (id === sessionId) newChat();
 		toast.success("Chat deleted");
 	}
-	return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(AppShell, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-		className: "animate-fade-up grid h-[calc(100vh-9rem)] grid-cols-1 gap-4 md:h-[calc(100vh-7rem)] lg:grid-cols-[260px_1fr]",
-		children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("aside", {
-			className: "hidden flex-col rounded-2xl glass p-4 lg:flex",
-			children: [
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(AppShell, {
+		children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+			className: "animate-fade-up grid h-[calc(100vh-9rem)] grid-cols-1 gap-4 md:h-[calc(100vh-7rem)] lg:grid-cols-[260px_1fr]",
+			children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("aside", {
+				className: "hidden flex-col rounded-2xl glass p-4 lg:flex",
+				children: [
 				/* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
 					onClick: newChat,
 					className: "mb-4 rounded-lg gradient-violet px-3 py-2 text-sm font-semibold text-white btn-glow",
@@ -223,29 +241,30 @@ function ChatPage() {
 								className: "flex items-center gap-1",
 								children: [
 									/* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", {
-										autoFocus: true,
-										value: renameValue,
-										onChange: (e) => setRenameValue(e.target.value),
-										onKeyDown: (e) => {
-											if (e.key === "Enter") commitRename(s.session_id);
-											if (e.key === "Escape") setRenamingId(null);
-										},
-										className: "min-w-0 flex-1 rounded border border-violet/40 bg-background/60 px-2 py-1 text-xs focus:outline-none"
-									}),
+									autoFocus: true,
+									value: renameValue,
+									onChange: (e) => setRenameValue(e.target.value),
+									onKeyDown: (e) => {
+										if (e.key === "Enter") commitRename(s.session_id);
+										if (e.key === "Escape") setRenamingId(null);
+									},
+									className: "min-w-0 flex-1 rounded border border-violet/40 bg-background/60 px-2 py-1 text-xs focus:outline-none"
+								}),
 									/* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
-										onClick: () => commitRename(s.session_id),
-										className: "rounded p-1 text-emerald hover:bg-emerald/10",
-										"aria-label": "Save",
-										children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Check, { size: 12 })
-									}),
+									onClick: () => commitRename(s.session_id),
+									className: "rounded p-1 text-emerald hover:bg-emerald/10",
+									"aria-label": "Save",
+									children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Check, { size: 12 })
+								}),
 									/* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
-										onClick: () => setRenamingId(null),
-										className: "rounded p-1 text-muted-foreground hover:bg-white/10",
-										"aria-label": "Cancel",
-										children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(X, { size: 12 })
-									})
+									onClick: () => setRenamingId(null),
+									className: "rounded p-1 text-muted-foreground hover:bg-white/10",
+									"aria-label": "Cancel",
+									children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(X, { size: 12 })
+								})
 								]
-							}) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+							}) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, {
+								children: [
 								/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
 									onClick: () => setSessionId(s.session_id),
 									className: "block w-full pr-7 text-left",
@@ -266,27 +285,28 @@ function ChatPage() {
 									"aria-label": "Chat options",
 									children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Ellipsis, { size: 14 })
 								}),
-								menuOpenFor === s.session_id && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-									onClick: (e) => e.stopPropagation(),
-									className: "absolute right-1.5 top-8 z-10 w-32 overflow-hidden rounded-lg border border-border bg-popover/95 shadow-lg backdrop-blur-xl",
-									children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
-										onClick: () => startRename(s.session_id, title),
-										className: "flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-white/[0.06]",
-										children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Pencil, { size: 12 }), " Rename"]
-									}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
-										onClick: () => deleteSession(s.session_id),
-										className: "flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-rose hover:bg-rose/10",
-										children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Trash2, { size: 12 }), " Delete"]
-									})]
-								})
-							] })
+									menuOpenFor === s.session_id && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+										onClick: (e) => e.stopPropagation(),
+										className: "absolute right-1.5 top-8 z-10 w-32 overflow-hidden rounded-lg border border-border bg-popover/95 shadow-lg backdrop-blur-xl",
+										children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
+											onClick: () => startRename(s.session_id, title),
+											className: "flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-white/[0.06]",
+											children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Pencil, { size: 12 }), " Rename"]
+										}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
+											onClick: () => deleteSession(s.session_id),
+											className: "flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-rose hover:bg-rose/10",
+											children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Trash2, { size: 12 }), " Delete"]
+										})]
+									})
+								]
+							})
 						}, s.session_id);
 					})
 				})
-			]
-		}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", {
-			className: "flex min-h-0 flex-col rounded-2xl glass",
-			children: [
+				]
+			}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", {
+				className: "flex min-h-0 flex-col rounded-2xl glass",
+				children: [
 				/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("header", {
 					className: "flex items-center justify-between border-b border-white/[0.08] px-4 py-3 md:px-5 md:py-4",
 					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
@@ -330,36 +350,36 @@ function ChatPage() {
 							className: "flex h-full flex-col items-center justify-center px-2 text-center",
 							children: [
 								/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-									className: "mb-4 grid h-14 w-14 place-items-center rounded-2xl gradient-violet glow-violet",
-									children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Sparkles, {
-										className: "text-white",
-										size: 24
-									})
-								}),
-								/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", {
-									className: "font-display text-lg font-semibold md:text-xl",
-									children: "How can I help with your finances today?"
-								}),
-								/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
-									className: "mt-2 max-w-md text-sm text-muted-foreground",
-									children: "Try asking: \"How much did I spend on dining last month?\" or \"What's my biggest expense category?\""
-								}),
-								/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-									className: "mt-6 grid w-full max-w-md gap-2 sm:grid-cols-2",
-									children: [
-										"Show my spending by category",
-										"Am I saving enough?",
-										"Where can I cut back?",
-										"Summarize last month"
-									].map((q) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
-										onClick: () => setInput(q),
-										className: "rounded-lg glass px-3 py-2 text-left text-xs glass-hover",
-										children: q
-									}, q))
+								className: "mb-4 grid h-14 w-14 place-items-center rounded-2xl gradient-violet glow-violet",
+								children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Sparkles, {
+									className: "text-white",
+									size: 24
 								})
+							}),
+								/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", {
+								className: "font-display text-lg font-semibold md:text-xl",
+								children: "How can I help with your finances today?"
+							}),
+								/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+								className: "mt-2 max-w-md text-sm text-muted-foreground",
+								children: "Try asking: \"How much did I spend on dining last month?\" or \"What's my biggest expense category?\""
+							}),
+								/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+								className: "mt-6 grid w-full max-w-md gap-2 sm:grid-cols-2",
+								children: [
+									"Show my spending by category",
+									"Am I saving enough?",
+									"Where can I cut back?",
+									"Summarize last month"
+								].map((q) => /* @__PURE__ */(0, import_jsx_runtime.jsx)("button", {
+									onClick: () => setInput(q),
+									className: "rounded-lg glass px-3 py-2 text-left text-xs glass-hover",
+									children: q
+								}, q))
+							})
 							]
 						}),
-						messages.map((m) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MessageBubble, { msg: m }, m.id)),
+						messages.map((m) => /* @__PURE__ */(0, import_jsx_runtime.jsx)(MessageBubble, { msg: m }, m.id)),
 						sending && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 							className: "flex items-start gap-3",
 							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
@@ -413,9 +433,10 @@ function ChatPage() {
 						children: "AI responses are generated and may not always be accurate."
 					})]
 				})
-			]
-		})]
-	}) });
+				]
+			})]
+		})
+	});
 }
 function MessageBubble({ msg }) {
 	const isUser = msg.role === "user";
@@ -442,34 +463,48 @@ function MessageBubble({ msg }) {
 							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
 								className: "text-lg",
 								children: "📄"
-							}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-								className: "font-medium",
-								children: parsed.fileName
-							}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-								className: "text-xs opacity-70",
-								children: "Uploaded document"
-							})] })]
+							}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+								children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+									className: "font-medium",
+									children: parsed.fileName
+								}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+									className: "text-xs opacity-70",
+									children: "Uploaded document"
+								})]
+							})]
 						});
-						if (parsed.show_table) return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("table", {
-							className: "border-collapse border border-gray-500 text-sm",
-							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("thead", { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("tr", { children: parsed.result.columns.map((col) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", {
-								className: "border px-2 py-1",
-								children: col
-							}, col)) }) }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("tbody", { children: parsed.result.rows.map((row, rowIndex) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("tr", { children: row.map((cell, cellIndex) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", {
-								className: "border px-2 py-1",
-								children: String(cell)
-							}, cellIndex)) }, rowIndex)) })]
-						}) });
+						if (parsed.show_table) return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+							children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("table", {
+								className: "border-collapse border border-gray-500 text-sm",
+								children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("thead", {
+									children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("tr", {
+										children: parsed.result.columns.map((col) => /* @__PURE__ */(0, import_jsx_runtime.jsx)("th", {
+											className: "border px-2 py-1",
+											children: col
+										}, col))
+									})
+								}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("tbody", {
+									children: parsed.result.rows.map((row, rowIndex) => /* @__PURE__ */(0, import_jsx_runtime.jsx)("tr", {
+										children: row.map((cell, cellIndex) => /* @__PURE__ */(0, import_jsx_runtime.jsx)("td", {
+											className: "border px-2 py-1",
+											children: String(cell)
+										}, cellIndex))
+									}, rowIndex))
+								})]
+							})
+						});
 						if (parsed.answer) return parsed.answer;
-					} catch {}
+					} catch { }
 					return msg.content;
 				})()
 			}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 				className: "mt-1 flex items-center gap-2 text-[10px] text-muted-foreground",
-				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: new Date(msg.created_at).toLocaleTimeString([], {
-					hour: "2-digit",
-					minute: "2-digit"
-				}) }), !isUser && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
+				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+					children: new Date(msg.created_at).toLocaleTimeString([], {
+						hour: "2-digit",
+						minute: "2-digit"
+					})
+				}), !isUser && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
 					onClick: () => {
 						navigator.clipboard.writeText(msg.content);
 						toast.success("Copied");

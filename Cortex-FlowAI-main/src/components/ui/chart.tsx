@@ -1,331 +1,589 @@
-import * as React from "react";
-import * as RechartsPrimitive from "recharts";
+import { createFileRoute } from "@tanstack/react-router";
+import React, { useEffect, useRef, useState } from "react";
+import { Send, Loader2, Copy, Sparkles, Brain, MoreHorizontal, Pencil, Trash2, Check, X } from "lucide-react";
+import { AppShell } from "@/components/app-shell";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
-import { cn } from "@/lib/utils";
-
-// Format: { THEME_NAME: CSS_SELECTOR }
-const THEMES = { light: "", dark: ".dark" } as const;
-
-export type ChartConfig = {
-  [k in string]: {
-    label?: React.ReactNode;
-    icon?: React.ComponentType;
-  } & (
-    | { color?: string; theme?: never }
-    | { color?: never; theme: Record<keyof typeof THEMES, string> }
-  );
-};
-
-type ChartContextProps = {
-  config: ChartConfig;
-};
-
-const ChartContext = React.createContext<ChartContextProps | null>(null);
-
-function useChart() {
-  const context = React.useContext(ChartContext);
-
-  if (!context) {
-    throw new Error("useChart must be used within a <ChartContainer />");
-  }
-
-  return context;
+const TITLES_KEY = "chatSessionTitles";
+function loadTitles(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  try { return JSON.parse(localStorage.getItem(TITLES_KEY) ?? "{}"); } catch { return {}; }
+}
+function saveTitles(t: Record<string, string>) {
+  if (typeof window !== "undefined") localStorage.setItem(TITLES_KEY, JSON.stringify(t));
 }
 
-const ChartContainer = React.forwardRef<
-  HTMLDivElement,
-  React.ComponentProps<"div"> & {
-    config: ChartConfig;
-    children: React.ComponentProps<typeof RechartsPrimitive.ResponsiveContainer>["children"];
-  }
->(({ id, className, children, config, ...props }, ref) => {
-  const uniqueId = React.useId();
-  const chartId = `chart-${id || uniqueId.replace(/:/g, "")}`;
-
-  return (
-    <ChartContext.Provider value={{ config }}>
-      <div
-        data-chart={chartId}
-        ref={ref}
-        className={cn(
-          "flex aspect-video justify-center text-xs [&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground [&_.recharts-cartesian-grid_line[stroke='#ccc']]:stroke-border/50 [&_.recharts-curve.recharts-tooltip-cursor]:stroke-border [&_.recharts-dot[stroke='#fff']]:stroke-transparent [&_.recharts-layer]:outline-none [&_.recharts-polar-grid_[stroke='#ccc']]:stroke-border [&_.recharts-radial-bar-background-sector]:fill-muted [&_.recharts-rectangle.recharts-tooltip-cursor]:fill-muted [&_.recharts-reference-line_[stroke='#ccc']]:stroke-border [&_.recharts-sector[stroke='#fff']]:stroke-transparent [&_.recharts-sector]:outline-none [&_.recharts-surface]:outline-none",
-          className,
-        )}
-        {...props}
-      >
-        <ChartStyle id={chartId} config={config} />
-        <RechartsPrimitive.ResponsiveContainer>{children}</RechartsPrimitive.ResponsiveContainer>
-      </div>
-    </ChartContext.Provider>
-  );
+export const Route = createFileRoute("/_authenticated/chat")({
+  head: () => ({ meta: [{ title: "AI Chat · Cortex Flow" }] }),
+  component: ChatPage,
 });
-ChartContainer.displayName = "Chart";
 
-const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
-  const colorConfig = Object.entries(config).filter(([, config]) => config.theme || config.color);
+// In production the backend address MUST come from the VITE_API_BASE_URL variable
+// (Vercel -> Project -> Settings -> Environment Variables, then redeploy).
+// localhost is only used while you run the site on your own computer.
+const API_BASE_URL: string = (
+  import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "http://127.0.0.1:8000" : "")
+).replace(/\/+$/, "");
+const API_URL = `${API_BASE_URL}/chat`;
+const FILE_UPLOAD_URL = `${API_BASE_URL}/upload-file`;
+const CSV_UPLOAD_URL = `${API_BASE_URL}/upload-csv`;
 
-  if (!colorConfig.length) {
-    return null;
+type Msg = { id: string; role: "user" | "assistant"; content: string; created_at: string };
+
+function getSessionId() {
+  if (typeof window === "undefined") return "default";
+  let s = sessionStorage.getItem("chatSessionId");
+  if (!s) {
+    s = crypto.randomUUID();
+    sessionStorage.setItem("chatSessionId", s);
+  }
+  return s;
+}
+
+function ChatPage() {
+  const qc = useQueryClient();
+  const [sessionId, setSessionId] = useState(() => (typeof window !== "undefined" ? getSessionId() : "default"));
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const { data: messages = [] } = useQuery({
+    queryKey: ["chat", sessionId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("chat_history")
+        .select("*")
+        .eq("session_id", sessionId)
+        .order("created_at", { ascending: true });
+      return (data ?? []) as Msg[];
+    },
+  });
+
+  const { data: sessions = [] } = useQuery({
+    queryKey: ["chat-sessions"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("chat_history")
+        .select("session_id, content, created_at")
+        .order("created_at", { ascending: false })
+        .limit(200);
+      const seen = new Set<string>();
+      const out: { session_id: string; preview: string; created_at: string }[] = [];
+      for (const row of data ?? []) {
+        if (seen.has(row.session_id)) continue;
+        seen.add(row.session_id);
+        out.push({ session_id: row.session_id, preview: row.content.slice(0, 60), created_at: row.created_at });
+      }
+      return out;
+    },
+  });
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, sending]);
+
+  async function send() {
+    const text = input.trim();
+    if (!text || sending) return;
+    if (!API_BASE_URL) {
+      toast.error("AI service address is not set. Add VITE_API_BASE_URL in Vercel and redeploy.");
+      return;
+    }
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) {
+      toast.error("Please sign in again");
+      return;
+    }
+    setInput("");
+    setSending(true);
+
+    await supabase.from("chat_history").insert({
+      user_id: u.user.id, session_id: sessionId, role: "user", content: text,
+    });
+    qc.invalidateQueries({ queryKey: ["chat", sessionId] });
+
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: text,
+        }),
+        signal: AbortSignal.timeout(90_000), // free hosts can take a while to wake up
+      });
+
+      if (!res.ok) {
+        throw new Error(`Server error: ${res.status}`);
+      }
+
+      const data = await res.json();
+      console.log("API Response:", data);
+
+      await supabase.from("chat_history").insert({
+        user_id: u.user.id,
+        session_id: sessionId,
+        role: "assistant",
+        content: JSON.stringify({
+          answer: data.answer,
+          result: data.result,
+          show_table: data.show_table
+        })
+      });
+
+      qc.invalidateQueries({ queryKey: ["chat", sessionId] });
+      qc.invalidateQueries({ queryKey: ["chat-sessions"] });
+
+    } catch (e) {
+      console.error("Chat request failed:", e);
+      if (e instanceof DOMException && e.name === "TimeoutError") {
+        toast.error("The AI service took too long. It may be waking up, please try again.");
+      } else if (e instanceof TypeError) {
+        // fetch throws TypeError when the server cannot be reached (offline, blocked, CORS)
+        toast.error(`Couldn't reach the AI service at ${API_BASE_URL}. Check that the backend is online.`);
+      } else {
+        toast.error(e instanceof Error ? e.message : "The AI service returned an error");
+      }
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function handleCsvUpload(
+    e: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file = e.target.files?.[0];
+
+    if (!file) return;
+    if (!API_BASE_URL) {
+      toast.error("AI service address is not set. Add VITE_API_BASE_URL in Vercel and redeploy.");
+      return;
+    }
+
+    const isCsv = file.name
+      .toLowerCase()
+      .endsWith(".csv");
+
+    const endpoint = isCsv
+      ? CSV_UPLOAD_URL
+      : FILE_UPLOAD_URL;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      const data = await res.json();
+
+      if (data.error) {
+        toast.error(data.error);
+        return;
+      }
+
+      toast.success(
+        `${file.name} uploaded successfully`
+      );
+
+      const { data: u } =
+        await supabase.auth.getUser();
+
+      if (u.user) {
+
+        // User attachment message
+        await supabase
+          .from("chat_history")
+          .insert({
+            user_id: u.user.id,
+            session_id: sessionId,
+            role: "user",
+            content: JSON.stringify({
+              type: "file",
+              fileName: file.name
+            })
+          });
+
+        // AI confirmation message
+        await supabase
+          .from("chat_history")
+          .insert({
+            user_id: u.user.id,
+            session_id: sessionId,
+            role: "assistant",
+            content: JSON.stringify({
+              answer: `${file.name} uploaded successfully`
+            })
+          });
+
+        qc.invalidateQueries({
+          queryKey: ["chat", sessionId]
+        });
+      }
+
+    } catch (err) {
+      toast.error("Upload failed");
+    }
+  }
+  function newChat() {
+    const s = crypto.randomUUID();
+    sessionStorage.setItem("chatSessionId", s);
+    setSessionId(s);
+  }
+
+  const [titles, setTitles] = useState<Record<string, string>>(() => loadTitles());
+  const [menuOpenFor, setMenuOpenFor] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+
+  useEffect(() => {
+    if (!menuOpenFor) return;
+    const close = () => setMenuOpenFor(null);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, [menuOpenFor]);
+
+  function startRename(id: string, current: string) {
+    setMenuOpenFor(null);
+    setRenamingId(id);
+    setRenameValue(current);
+  }
+  function commitRename(id: string) {
+    const name = renameValue.trim();
+    const next = { ...titles };
+    if (name) next[id] = name; else delete next[id];
+    setTitles(next);
+    saveTitles(next);
+    setRenamingId(null);
+  }
+  async function deleteSession(id: string) {
+    if (!confirm("Delete this chat? This cannot be undone.")) return;
+    setMenuOpenFor(null);
+    const { error } = await supabase.from("chat_history").delete().eq("session_id", id);
+    if (error) { toast.error("Couldn't delete chat"); return; }
+    const next = { ...titles };
+    delete next[id];
+    setTitles(next);
+    saveTitles(next);
+    qc.invalidateQueries({ queryKey: ["chat-sessions"] });
+    if (id === sessionId) newChat();
+    toast.success("Chat deleted");
   }
 
   return (
-    <style
-      dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
-          .map(
-            ([theme, prefix]) => `
-${prefix} [data-chart=${id}] {
-${colorConfig
-  .map(([key, itemConfig]) => {
-    const color = itemConfig.theme?.[theme as keyof typeof itemConfig.theme] || itemConfig.color;
-    return color ? `  --color-${key}: ${color};` : null;
-  })
-  .join("\n")}
-}
-`,
-          )
-          .join("\n"),
-      }}
-    />
-  );
-};
-
-const ChartTooltip = RechartsPrimitive.Tooltip;
-
-const ChartTooltipContent = React.forwardRef<
-  HTMLDivElement,
-  React.ComponentProps<typeof RechartsPrimitive.Tooltip> &
-    React.ComponentProps<"div"> & {
-      hideLabel?: boolean;
-      hideIndicator?: boolean;
-      indicator?: "line" | "dot" | "dashed";
-      nameKey?: string;
-      labelKey?: string;
-    }
->(
-  (
-    {
-      active,
-      payload,
-      className,
-      indicator = "dot",
-      hideLabel = false,
-      hideIndicator = false,
-      label,
-      labelFormatter,
-      labelClassName,
-      formatter,
-      color,
-      nameKey,
-      labelKey,
-    },
-    ref,
-  ) => {
-    const { config } = useChart();
-
-    const tooltipLabel = React.useMemo(() => {
-      if (hideLabel || !payload?.length) {
-        return null;
-      }
-
-      const [item] = payload;
-      const key = `${labelKey || item?.dataKey || item?.name || "value"}`;
-      const itemConfig = getPayloadConfigFromPayload(config, item, key);
-      const value =
-        !labelKey && typeof label === "string"
-          ? config[label as keyof typeof config]?.label || label
-          : itemConfig?.label;
-
-      if (labelFormatter) {
-        return (
-          <div className={cn("font-medium", labelClassName)}>{labelFormatter(value, payload)}</div>
-        );
-      }
-
-      if (!value) {
-        return null;
-      }
-
-      return <div className={cn("font-medium", labelClassName)}>{value}</div>;
-    }, [label, labelFormatter, payload, hideLabel, labelClassName, config, labelKey]);
-
-    if (!active || !payload?.length) {
-      return null;
-    }
-
-    const nestLabel = payload.length === 1 && indicator !== "dot";
-
-    return (
-      <div
-        ref={ref}
-        className={cn(
-          "grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl",
-          className,
-        )}
-      >
-        {!nestLabel ? tooltipLabel : null}
-        <div className="grid gap-1.5">
-          {payload
-            .filter((item) => item.type !== "none")
-            .map((item, index) => {
-              const key = `${nameKey || item.name || item.dataKey || "value"}`;
-              const itemConfig = getPayloadConfigFromPayload(config, item, key);
-              const indicatorColor = color || item.payload.fill || item.color;
-
-              return (
-                <div
-                  key={item.dataKey}
-                  className={cn(
-                    "flex w-full flex-wrap items-stretch gap-2 [&>svg]:h-2.5 [&>svg]:w-2.5 [&>svg]:text-muted-foreground",
-                    indicator === "dot" && "items-center",
-                  )}
-                >
-                  {formatter && item?.value !== undefined && item.name ? (
-                    formatter(item.value, item.name, item, index, item.payload)
-                  ) : (
-                    <>
-                      {itemConfig?.icon ? (
-                        <itemConfig.icon />
-                      ) : (
-                        !hideIndicator && (
-                          <div
-                            className={cn(
-                              "shrink-0 rounded-[2px] border-(--color-border) bg-(--color-bg)",
-                              {
-                                "h-2.5 w-2.5": indicator === "dot",
-                                "w-1": indicator === "line",
-                                "w-0 border-[1.5px] border-dashed bg-transparent":
-                                  indicator === "dashed",
-                                "my-0.5": nestLabel && indicator === "dashed",
-                              },
-                            )}
-                            style={
-                              {
-                                "--color-bg": indicatorColor,
-                                "--color-border": indicatorColor,
-                              } as React.CSSProperties
-                            }
-                          />
-                        )
-                      )}
-                      <div
-                        className={cn(
-                          "flex flex-1 justify-between leading-none",
-                          nestLabel ? "items-end" : "items-center",
-                        )}
-                      >
-                        <div className="grid gap-1.5">
-                          {nestLabel ? tooltipLabel : null}
-                          <span className="text-muted-foreground">
-                            {itemConfig?.label || item.name}
-                          </span>
-                        </div>
-                        {item.value && (
-                          <span className="font-mono font-medium tabular-nums text-foreground">
-                            {item.value.toLocaleString()}
-                          </span>
-                        )}
+    <AppShell>
+      <div className="animate-fade-up grid h-[calc(100vh-9rem)] grid-cols-1 gap-4 md:h-[calc(100vh-7rem)] lg:grid-cols-[260px_1fr]">
+        {/* Sessions — desktop only */}
+        <aside className="hidden flex-col rounded-2xl glass p-4 lg:flex">
+          <button
+            onClick={newChat}
+            className="mb-4 rounded-lg gradient-violet px-3 py-2 text-sm font-semibold text-white btn-glow"
+          >
+            + New chat
+          </button>
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">History</div>
+          <div className="flex-1 space-y-1 overflow-auto">
+            {sessions.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-border p-4 text-xs text-muted-foreground">
+                No previous chats
+              </div>
+            ) : (
+              sessions.map((s) => {
+                const title = titles[s.session_id] ?? (s.preview || "New conversation");
+                const isActive = s.session_id === sessionId;
+                const isRenaming = renamingId === s.session_id;
+                return (
+                  <div
+                    key={s.session_id}
+                    className={`group/item relative rounded-lg border px-3 py-2 text-xs transition ${isActive ? "border-violet/50 bg-violet/10" : "border-transparent hover:border-border hover:bg-white/[0.05]"
+                      }`}
+                  >
+                    {isRenaming ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          autoFocus
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") commitRename(s.session_id);
+                            if (e.key === "Escape") setRenamingId(null);
+                          }}
+                          className="min-w-0 flex-1 rounded border border-violet/40 bg-background/60 px-2 py-1 text-xs focus:outline-none"
+                        />
+                        <button onClick={() => commitRename(s.session_id)} className="rounded p-1 text-emerald hover:bg-emerald/10" aria-label="Save">
+                          <Check size={12} />
+                        </button>
+                        <button onClick={() => setRenamingId(null)} className="rounded p-1 text-muted-foreground hover:bg-white/10" aria-label="Cancel">
+                          <X size={12} />
+                        </button>
                       </div>
-                    </>
-                  )}
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => setSessionId(s.session_id)}
+                          className="block w-full pr-7 text-left"
+                        >
+                          <div className="truncate font-medium text-foreground">{title}</div>
+                          <div className="text-[10px] text-muted-foreground">{new Date(s.created_at).toLocaleDateString()}</div>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMenuOpenFor(menuOpenFor === s.session_id ? null : s.session_id);
+                          }}
+                          className="absolute right-1.5 top-1.5 rounded p-1 text-muted-foreground opacity-0 transition hover:bg-white/10 hover:text-foreground group-hover/item:opacity-100"
+                          aria-label="Chat options"
+                        >
+                          <MoreHorizontal size={14} />
+                        </button>
+                        {menuOpenFor === s.session_id && (
+                          <div
+                            onClick={(e) => e.stopPropagation()}
+                            className="absolute right-1.5 top-8 z-10 w-32 overflow-hidden rounded-lg border border-border bg-popover/95 shadow-lg backdrop-blur-xl"
+                          >
+                            <button
+                              onClick={() => startRename(s.session_id, title)}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-white/[0.06]"
+                            >
+                              <Pencil size={12} /> Rename
+                            </button>
+                            <button
+                              onClick={() => deleteSession(s.session_id)}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-rose hover:bg-rose/10"
+                            >
+                              <Trash2 size={12} /> Delete
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </aside>
+
+        {/* Chat */}
+        <section className="flex min-h-0 flex-col rounded-2xl glass">
+          <header className="flex items-center justify-between border-b border-white/[0.08] px-4 py-3 md:px-5 md:py-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg gradient-violet glow-violet">
+                <Brain size={18} className="text-white" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="truncate font-display text-base font-bold md:text-lg">AI Chat Assistant</h1>
+                <p className="hidden text-xs text-muted-foreground sm:block">Ask anything about your finances</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+
+              <input
+                id="file-upload"
+                type="file"
+                accept=".csv,.pdf,.docx,.txt"
+                onChange={handleCsvUpload}
+                className="hidden"
+              />
+
+              <button
+                onClick={() =>
+                  document.getElementById("file-upload")?.click()
+                }
+                className="rounded-md border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs"
+              >
+                Upload File
+              </button>
+
+
+
+            </div>
+          </header>
+
+          <div ref={scrollRef} className="flex-1 space-y-5 overflow-auto px-3 py-4 md:px-5 md:py-6">
+            {messages.length === 0 && !sending && (
+              <div className="flex h-full flex-col items-center justify-center px-2 text-center">
+                <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl gradient-violet glow-violet">
+                  <Sparkles className="text-white" size={24} />
                 </div>
-              );
-            })}
+                <h2 className="font-display text-lg font-semibold md:text-xl">How can I help with your finances today?</h2>
+                <p className="mt-2 max-w-md text-sm text-muted-foreground">
+                  Try asking: "How much did I spend on dining last month?" or "What's my biggest expense category?"
+                </p>
+                <div className="mt-6 grid w-full max-w-md gap-2 sm:grid-cols-2">
+                  {[
+                    "Show my spending by category",
+                    "Am I saving enough?",
+                    "Where can I cut back?",
+                    "Summarize last month",
+                  ].map((q) => (
+                    <button
+                      key={q}
+                      onClick={() => setInput(q)}
+                      className="rounded-lg glass px-3 py-2 text-left text-xs glass-hover"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {messages.map((m) => (
+              <MessageBubble key={m.id} msg={m} />
+            ))}
+            {sending && (
+              <div className="flex items-start gap-3">
+                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg gradient-violet">
+                  <Brain size={14} className="text-white" />
+                </div>
+                <div className="flex items-center gap-1.5 rounded-2xl glass px-4 py-3">
+                  <Dot /><Dot delay={0.15} /><Dot delay={0.3} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <footer className="border-t border-white/[0.08] p-3 md:p-4">
+            <form
+              onSubmit={(e) => { e.preventDefault(); send(); }}
+              className="flex items-end gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-2 backdrop-blur-xl focus-within:border-violet/60"
+            >
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+                placeholder="Ask a question..."
+                rows={1}
+                className="max-h-32 min-h-[44px] flex-1 resize-none bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none"
+              />
+              <button
+                type="submit"
+                disabled={!input.trim() || sending}
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-xl gradient-violet text-white btn-glow disabled:opacity-40"
+              >
+                {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={15} />}
+              </button>
+            </form>
+            <p className="mt-2 text-center text-[10px] text-muted-foreground">
+              AI responses are generated and may not always be accurate.
+            </p>
+          </footer>
+        </section>
+      </div>
+    </AppShell>
+  );
+}
+
+function MessageBubble({ msg }: { msg: Msg }) {
+  const isUser = msg.role === "user";
+  return (
+    <div className={`flex items-start gap-2 md:gap-3 ${isUser ? "flex-row-reverse" : ""}`}>
+      <div className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${isUser ? "glass" : "gradient-violet glow-violet"}`}>
+        {isUser ? <span className="text-xs font-bold">You</span> : <Brain size={14} className="text-white" />}
+      </div>
+      <div className={`group min-w-0 max-w-[85%] md:max-w-[80%] ${isUser ? "items-end text-right" : ""}`}>
+        <div
+          className={`whitespace-pre-wrap break-words rounded-2xl px-4 py-3 text-sm leading-relaxed ${isUser ? "gradient-violet text-white" : "glass"
+            }`}
+        >
+          {(() => {
+            try {
+              const parsed = JSON.parse(msg.content);
+
+              if (parsed.type === "file") {
+                return (
+                  <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+                    <span className="text-lg">📄</span>
+
+                    <div>
+                      <div className="font-medium">
+                        {parsed.fileName}
+                      </div>
+
+                      <div className="text-xs opacity-70">
+                        Uploaded document
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              if (parsed.show_table) {
+                return (
+                  <div className="overflow-x-auto">
+                    {parsed.answer && <p className="mb-2">{parsed.answer}</p>}
+                    <table className="border-collapse border border-gray-500 text-sm">
+                      <thead>
+                        <tr>
+                          {parsed.result.columns.map((col: string) => (
+                            <th
+                              key={col}
+                              className="border px-2 py-1"
+                            >
+                              {col}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {parsed.result.rows.map(
+                          (row: any[], rowIndex: number) => (
+                            <tr key={rowIndex}>
+                              {row.map(
+                                (cell: any, cellIndex: number) => (
+                                  <td
+                                    key={cellIndex}
+                                    className="border px-2 py-1"
+                                  >
+                                    {String(cell)}
+                                  </td>
+                                )
+                              )}
+                            </tr>
+                          )
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              }
+              if (parsed.answer) {
+                return parsed.answer;
+              }
+            } catch { }
+
+            return msg.content;
+          })()}
+        </div>
+        <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground">
+          <span>{new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+          {!isUser && (
+            <button
+              onClick={() => { navigator.clipboard.writeText(msg.content); toast.success("Copied"); }}
+              className="opacity-0 transition group-hover:opacity-100"
+            >
+              <Copy size={11} />
+            </button>
+          )}
         </div>
       </div>
-    );
-  },
-);
-ChartTooltipContent.displayName = "ChartTooltip";
-
-const ChartLegend = RechartsPrimitive.Legend;
-
-const ChartLegendContent = React.forwardRef<
-  HTMLDivElement,
-  React.ComponentProps<"div"> &
-    Pick<RechartsPrimitive.LegendProps, "payload" | "verticalAlign"> & {
-      hideIcon?: boolean;
-      nameKey?: string;
-    }
->(({ className, hideIcon = false, payload, verticalAlign = "bottom", nameKey }, ref) => {
-  const { config } = useChart();
-
-  if (!payload?.length) {
-    return null;
-  }
-
-  return (
-    <div
-      ref={ref}
-      className={cn(
-        "flex items-center justify-center gap-4",
-        verticalAlign === "top" ? "pb-3" : "pt-3",
-        className,
-      )}
-    >
-      {payload
-        .filter((item) => item.type !== "none")
-        .map((item) => {
-          const key = `${nameKey || item.dataKey || "value"}`;
-          const itemConfig = getPayloadConfigFromPayload(config, item, key);
-
-          return (
-            <div
-              key={item.value}
-              className={cn(
-                "flex items-center gap-1.5 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:text-muted-foreground",
-              )}
-            >
-              {itemConfig?.icon && !hideIcon ? (
-                <itemConfig.icon />
-              ) : (
-                <div
-                  className="h-2 w-2 shrink-0 rounded-[2px]"
-                  style={{
-                    backgroundColor: item.color,
-                  }}
-                />
-              )}
-              {itemConfig?.label}
-            </div>
-          );
-        })}
     </div>
   );
-});
-ChartLegendContent.displayName = "ChartLegend";
-
-// Helper to extract item config from a payload.
-function getPayloadConfigFromPayload(config: ChartConfig, payload: unknown, key: string) {
-  if (typeof payload !== "object" || payload === null) {
-    return undefined;
-  }
-
-  const payloadPayload =
-    "payload" in payload && typeof payload.payload === "object" && payload.payload !== null
-      ? payload.payload
-      : undefined;
-
-  let configLabelKey: string = key;
-
-  if (key in payload && typeof payload[key as keyof typeof payload] === "string") {
-    configLabelKey = payload[key as keyof typeof payload] as string;
-  } else if (
-    payloadPayload &&
-    key in payloadPayload &&
-    typeof payloadPayload[key as keyof typeof payloadPayload] === "string"
-  ) {
-    configLabelKey = payloadPayload[key as keyof typeof payloadPayload] as string;
-  }
-
-  return configLabelKey in config ? config[configLabelKey] : config[key as keyof typeof config];
 }
 
-export {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  ChartLegend,
-  ChartLegendContent,
-  ChartStyle,
-};
+function Dot({ delay = 0 }: { delay?: number }) {
+  return (
+    <span
+      className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-violet"
+      style={{ animationDelay: `${delay}s`, animationDuration: "0.9s" }}
+    />
+  );
+}
