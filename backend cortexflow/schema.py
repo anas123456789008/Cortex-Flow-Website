@@ -39,3 +39,23 @@ def get_schema():
     conn.close()
 
     return schema_text
+    """Request and response shapes. They match what the website (chat.tsx) expects."""
+
+from typing import Any, Optional
+
+from pydantic import BaseModel, Field
+
+
+class ChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=4000)
+
+
+class TableResult(BaseModel):
+    columns: list[str]
+    rows: list[list[Any]]
+
+
+class ChatResponse(BaseModel):
+    answer: str
+    result: Optional[TableResult] = None
+    show_table: bool = False
