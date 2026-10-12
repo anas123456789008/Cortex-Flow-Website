@@ -26,3 +26,11 @@ build/
 .env.*
 !.env.example
 .DS_Store
+node_modules/
+**/node_modules/
+dist/
+build/
+.env
+.env.*
+!.env.example
+.DS_Store
