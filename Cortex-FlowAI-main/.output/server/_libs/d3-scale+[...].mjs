@@ -53,7 +53,9 @@ function initRange(domain, range) {
 		case 1:
 			this.range(domain);
 			break;
-		default: this.range(range).domain(domain);
+		default:
+			this.range(range).domain(domain);
+			break;
 	}
 	return this;
 }
@@ -68,6 +70,7 @@ function initInterpolator(domain, interpolator) {
 			this.domain(domain);
 			if (typeof interpolator === "function") this.interpolator(interpolator);
 			else this.range(interpolator);
+			break;
 	}
 	return this;
 }
@@ -285,7 +288,9 @@ function tickFormat(start, stop, count, specifier) {
 			if (specifier.precision == null && !isNaN(precision = precisionRound_default(step, Math.max(Math.abs(start), Math.abs(stop))))) specifier.precision = precision - (specifier.type === "e");
 			break;
 		case "f":
-		case "%": if (specifier.precision == null && !isNaN(precision = precisionFixed_default(step))) specifier.precision = precision - (specifier.type === "%") * 2;
+		case "%":
+			if (specifier.precision == null && !isNaN(precision = precisionFixed_default(step))) specifier.precision = precision - (specifier.type === "%") * 2;
+			break;
 	}
 	return format(specifier);
 }
@@ -680,8 +685,7 @@ function threshold() {
 }
 //#endregion
 //#region node_modules/d3-time/src/interval.js
-var t0 = /* @__PURE__ */ new Date();
-var t1 = /* @__PURE__ */ new Date();
+var t0 = /* @__PURE__ */ new Date(), t1 = /* @__PURE__ */ new Date();
 function timeInterval(floori, offseti, count, field) {
 	function interval(date) {
 		return floori(date = arguments.length === 0 ? /* @__PURE__ */ new Date() : /* @__PURE__ */ new Date(+date)), date;
@@ -714,10 +718,8 @@ function timeInterval(floori, offseti, count, field) {
 		return timeInterval((date) => {
 			if (date >= date) while (floori(date), !test(date)) date.setTime(date - 1);
 		}, (date, step) => {
-			if (date >= date) {
-				if (step < 0) while (++step <= 0) while (offseti(date, -1), !test(date));
-				else while (--step >= 0) while (offseti(date, 1), !test(date));
-			}
+			if (date >= date) if (step < 0) while (++step <= 0) while (offseti(date, -1), !test(date));
+			else while (--step >= 0) while (offseti(date, 1), !test(date));
 		});
 	};
 	if (count) {
@@ -1382,10 +1384,7 @@ var pads = {
 	"-": "",
 	"_": " ",
 	"0": "0"
-};
-var numberRe = /^\s*\d+/;
-var percentRe = /^%/;
-var requoteRe = /[\\^$*+?|[\]().{}]/g;
+}, numberRe = /^\s*\d+/, percentRe = /^%/, requoteRe = /[\\^$*+?|[\]().{}]/g;
 function pad(value, fill, width) {
 	var sign = value < 0 ? "-" : "", string = (sign ? -value : value) + "", length = string.length;
 	return sign + (length < width ? new Array(width - length + 1).join(fill) + string : string);

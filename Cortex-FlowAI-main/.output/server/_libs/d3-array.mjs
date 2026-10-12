@@ -90,9 +90,7 @@ function ascendingDefined(a, b) {
 }
 //#endregion
 //#region node_modules/d3-array/src/ticks.js
-var e10 = Math.sqrt(50);
-var e5 = Math.sqrt(10);
-var e2 = Math.sqrt(2);
+var e10 = Math.sqrt(50), e5 = Math.sqrt(10), e2 = Math.sqrt(2);
 function tickSpec(start, stop, count) {
 	const step = (stop - start) / Math.max(0, count), power = Math.floor(Math.log10(step)), error = step / Math.pow(10, power), factor = error >= e10 ? 10 : error >= e5 ? 5 : error >= e2 ? 2 : 1;
 	let i1, i2, inc;
@@ -124,10 +122,9 @@ function ticks(start, stop, count) {
 	const reverse = stop < start, [i1, i2, inc] = reverse ? tickSpec(stop, start, count) : tickSpec(start, stop, count);
 	if (!(i2 >= i1)) return [];
 	const n = i2 - i1 + 1, ticks = new Array(n);
-	if (reverse) {
-		if (inc < 0) for (let i = 0; i < n; ++i) ticks[i] = (i2 - i) / -inc;
-		else for (let i = 0; i < n; ++i) ticks[i] = (i2 - i) * inc;
-	} else if (inc < 0) for (let i = 0; i < n; ++i) ticks[i] = (i1 + i) / -inc;
+	if (reverse) if (inc < 0) for (let i = 0; i < n; ++i) ticks[i] = (i2 - i) / -inc;
+	else for (let i = 0; i < n; ++i) ticks[i] = (i2 - i) * inc;
+	else if (inc < 0) for (let i = 0; i < n; ++i) ticks[i] = (i1 + i) / -inc;
 	else for (let i = 0; i < n; ++i) ticks[i] = (i1 + i) * inc;
 	return ticks;
 }

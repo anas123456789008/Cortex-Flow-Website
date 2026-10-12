@@ -1,6 +1,6 @@
 import { __awaiter } from "tslib";
 //#region node_modules/file-selector/dist/es2015/file.js
-var COMMON_MIME_TYPES = /* @__PURE__ */ new Map([
+var COMMON_MIME_TYPES = new Map([
 	["1km", "application/vnd.1000minds.decision-model+xml"],
 	["3dml", "text/vnd.in3d.3dml"],
 	["3ds", "image/x-3ds"],

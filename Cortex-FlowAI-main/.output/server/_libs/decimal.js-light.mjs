@@ -1,26 +1,11 @@
 //#region node_modules/decimal.js-light/decimal.mjs
-var MAX_DIGITS = 1e9;
-var defaults = {
+var MAX_DIGITS = 1e9, defaults = {
 	precision: 20,
 	rounding: 4,
 	toExpNeg: -7,
 	toExpPos: 21,
 	LN10: "2.302585092994045684017991454684364207601101488628772976033327900967572609677352480235997205089598298341967784042286"
-};
-var Decimal;
-var external = true;
-var decimalError = "[DecimalError] ";
-var invalidArgument = decimalError + "Invalid argument: ";
-var exponentOutOfRange = decimalError + "Exponent out of range: ";
-var mathfloor = Math.floor;
-var mathpow = Math.pow;
-var isDecimal = /^(\d+(\.\d*)?|\.\d+)(e[+-]?\d+)?$/i;
-var ONE;
-var BASE = 1e7;
-var LOG_BASE = 7;
-var MAX_SAFE_INTEGER = 9007199254740991;
-var MAX_E = mathfloor(MAX_SAFE_INTEGER / LOG_BASE);
-var P = {};
+}, Decimal, external = true, decimalError = "[DecimalError] ", invalidArgument = decimalError + "Invalid argument: ", exponentOutOfRange = decimalError + "Exponent out of range: ", mathfloor = Math.floor, mathpow = Math.pow, isDecimal = /^(\d+(\.\d*)?|\.\d+)(e[+-]?\d+)?$/i, ONE, BASE = 1e7, LOG_BASE = 7, MAX_SAFE_INTEGER = 9007199254740991, MAX_E = mathfloor(MAX_SAFE_INTEGER / LOG_BASE), P = {};
 P.absoluteValue = P.abs = function() {
 	var x = new this.constructor(this);
 	if (x.s) x.s = 1;
@@ -146,12 +131,12 @@ P.squareRoot = P.sqrt = function() {
 	e = getBase10Exponent(x);
 	external = false;
 	s = Math.sqrt(+x);
-	if (s == 0 || s == 1 / 0) {
+	if (s == 0 || s == Infinity) {
 		n = digitsToString(x.d);
 		if ((n.length + e) % 2 == 0) n += "0";
 		s = Math.sqrt(n);
 		e = mathfloor((e + 1) / 2) - (e < 0 || e % 2);
-		if (s == 1 / 0) n = "5e" + e;
+		if (s == Infinity) n = "5e" + e;
 		else {
 			n = s.toExponential();
 			n = n.slice(0, n.indexOf("e") + 1) + e;
@@ -880,20 +865,16 @@ function config(obj) {
 		0,
 		8,
 		"toExpNeg",
-		-1 / 0,
+		-Infinity,
 		0,
 		"toExpPos",
 		0,
-		1 / 0
+		Infinity
 	];
-	for (i = 0; i < ps.length; i += 3) if ((v = obj[p = ps[i]]) !== void 0) {
-		if (mathfloor(v) === v && v >= ps[i + 1] && v <= ps[i + 2]) this[p] = v;
-		else throw Error(invalidArgument + p + ": " + v);
-	}
-	if ((v = obj[p = "LN10"]) !== void 0) {
-		if (v == Math.LN10) this[p] = new this(v);
-		else throw Error(invalidArgument + p + ": " + v);
-	}
+	for (i = 0; i < ps.length; i += 3) if ((v = obj[p = ps[i]]) !== void 0) if (mathfloor(v) === v && v >= ps[i + 1] && v <= ps[i + 2]) this[p] = v;
+	else throw Error(invalidArgument + p + ": " + v);
+	if ((v = obj[p = "LN10"]) !== void 0) if (v == Math.LN10) this[p] = new this(v);
+	else throw Error(invalidArgument + p + ": " + v);
 	return this;
 }
 var Decimal = clone(defaults);

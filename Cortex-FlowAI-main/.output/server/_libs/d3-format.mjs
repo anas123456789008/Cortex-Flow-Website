@@ -84,6 +84,7 @@ function formatTrim_default(s) {
 		default:
 			if (!+s[i]) break out;
 			if (i0 > 0) i0 = 0;
+			break;
 	}
 	return i0 > 0 ? s.slice(0, i0) + s.slice(i1 + 1) : s;
 }
@@ -128,8 +129,7 @@ function identity_default(x) {
 }
 //#endregion
 //#region node_modules/d3-format/src/locale.js
-var map = Array.prototype.map;
-var prefixes = [
+var map = Array.prototype.map, prefixes = [
 	"y",
 	"z",
 	"a",
@@ -194,7 +194,9 @@ function locale_default(locale) {
 				case "^":
 					value = padding.slice(0, length = padding.length >> 1) + valuePrefix + value + valueSuffix + padding.slice(length);
 					break;
-				default: value = padding + valuePrefix + value + valueSuffix;
+				default:
+					value = padding + valuePrefix + value + valueSuffix;
+					break;
 			}
 			return numerals(value);
 		}

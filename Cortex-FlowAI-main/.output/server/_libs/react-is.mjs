@@ -10,19 +10,7 @@ import { t as __commonJSMin } from "../_runtime.mjs";
 * LICENSE file in the root directory of this source tree.
 */
 var require_react_is_production_min = /* @__PURE__ */ __commonJSMin(((exports) => {
-	var b = Symbol.for("react.element");
-	var c = Symbol.for("react.portal");
-	var d = Symbol.for("react.fragment");
-	var e = Symbol.for("react.strict_mode");
-	var f = Symbol.for("react.profiler");
-	var g = Symbol.for("react.provider");
-	var h = Symbol.for("react.context");
-	var k = Symbol.for("react.server_context");
-	var l = Symbol.for("react.forward_ref");
-	var m = Symbol.for("react.suspense");
-	var n = Symbol.for("react.suspense_list");
-	var p = Symbol.for("react.memo");
-	var q = Symbol.for("react.lazy");
+	var b = Symbol.for("react.element"), c = Symbol.for("react.portal"), d = Symbol.for("react.fragment"), e = Symbol.for("react.strict_mode"), f = Symbol.for("react.profiler"), g = Symbol.for("react.provider"), h = Symbol.for("react.context"), k = Symbol.for("react.server_context"), l = Symbol.for("react.forward_ref"), m = Symbol.for("react.suspense"), n = Symbol.for("react.suspense_list"), p = Symbol.for("react.memo"), q = Symbol.for("react.lazy");
 	function v(a) {
 		if ("object" === typeof a && null !== a) {
 			var r = a.$$typeof;

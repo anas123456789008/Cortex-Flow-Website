@@ -614,6 +614,16 @@ var MessageSquare = createLucideIcon("message-square", [["path", {
 * This source code is licensed under the ISC license.
 * See the LICENSE file in the root directory of this source tree.
 */
+var Minus = createLucideIcon("minus", [["path", {
+	d: "M5 12h14",
+	key: "1ays0h"
+}]]);
+/**
+* @license lucide-react v0.575.0 - ISC
+*
+* This source code is licensed under the ISC license.
+* See the LICENSE file in the root directory of this source tree.
+*/
 var Pencil = createLucideIcon("pencil", [["path", {
 	d: "M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z",
 	key: "1a8usu"
@@ -917,4 +927,4 @@ var Zap = createLucideIcon("zap", [["path", {
 	key: "1xq2db"
 }]]);
 //#endregion
-export { EyeOff as A, ArrowRight as B, LoaderCircle as C, FileSpreadsheet as D, FileText as E, CircleAlert as F, Check as I, ChartColumn as L, Download as M, Copy as N, FileChartColumnIncreasing as O, CircleCheck as P, Brain as R, Lock as S, LayoutDashboard as T, Activity as V, Pencil as _, Upload as a, LogOut as b, TrendingDown as c, ShieldCheck as d, Settings as f, PiggyBank as g, Printer as h, UserPlus as i, Ellipsis as j, Eye as k, Trash2 as l, Save as m, X as n, TriangleAlert as o, Send as p, User as r, TrendingUp as s, Zap as t, Sparkles as u, MessageSquare as v, Lightbulb as w, LogIn as x, Mail as y, ArrowUpRight as z };
+export { Eye as A, ArrowUpRight as B, Lock as C, FileText as D, LayoutDashboard as E, CircleCheck as F, Activity as H, CircleAlert as I, Check as L, Ellipsis as M, Download as N, FileSpreadsheet as O, Copy as P, ChartColumn as R, LogIn as S, Lightbulb as T, ArrowRight as V, Pencil as _, Upload as a, Mail as b, TrendingDown as c, ShieldCheck as d, Settings as f, PiggyBank as g, Printer as h, UserPlus as i, EyeOff as j, FileChartColumnIncreasing as k, Trash2 as l, Save as m, X as n, TriangleAlert as o, Send as p, User as r, TrendingUp as s, Zap as t, Sparkles as u, Minus as v, LoaderCircle as w, LogOut as x, MessageSquare as y, Brain as z };

@@ -95,7 +95,7 @@ function GenIcon(data) {
 }
 function IconBase(props) {
 	var elem = (conf) => {
-		var { attr, size, title } = props, svgProps = _objectWithoutProperties(props, _excluded);
+		var attr = props.attr, size = props.size, title = props.title, svgProps = _objectWithoutProperties(props, _excluded);
 		var computedSize = size || conf.size || "1em";
 		var className;
 		if (conf.className) className = conf.className;

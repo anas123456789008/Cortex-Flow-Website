@@ -182,22 +182,20 @@ var isDev = false;
 var warn = function warn(condition, format, a, b, c, d, e, f) {
 	if (isDev && typeof console !== "undefined" && console.warn) {
 		if (format === void 0) console.warn("LogUtils requires an error message argument");
-		if (!condition) {
-			if (format === void 0) console.warn("Minified exception occurred; use the non-minified dev environment for the full error message and additional helpful warnings.");
-			else {
-				var args = [
-					a,
-					b,
-					c,
-					d,
-					e,
-					f
-				];
-				var argIndex = 0;
-				console.warn(format.replace(/%s/g, function() {
-					return args[argIndex++];
-				}));
-			}
+		if (!condition) if (format === void 0) console.warn("Minified exception occurred; use the non-minified dev environment for the full error message and additional helpful warnings.");
+		else {
+			var args = [
+				a,
+				b,
+				c,
+				d,
+				e,
+				f
+			];
+			var argIndex = 0;
+			console.warn(format.replace(/%s/g, function() {
+				return args[argIndex++];
+			}));
 		}
 	}
 };
@@ -630,8 +628,8 @@ function _objectWithoutPropertiesLoose(source, excluded) {
 	if (source == null) return {};
 	var target = {};
 	var sourceKeys = Object.keys(source);
-	var key, i = 0;
-	for (; i < sourceKeys.length; i++) {
+	var key, i;
+	for (i = 0; i < sourceKeys.length; i++) {
 		key = sourceKeys[i];
 		if (excluded.indexOf(key) >= 0) continue;
 		target[key] = source[key];

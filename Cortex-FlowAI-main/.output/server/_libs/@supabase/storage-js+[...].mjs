@@ -1310,6 +1310,7 @@ var StorageFileApi = class extends BaseApiClient {
 	* @param fromPath The original file path, including the current file name. For example `folder/image.png`.
 	* @param toPath The new file path, including the new file name. For example `folder/image-new.png`.
 	* @param options The destination options.
+	* @param options.sourceVersionId The version id of the source object to move.
 	* @returns Promise with response containing success message or error
 	*
 	* @example Move file
@@ -1343,7 +1344,8 @@ var StorageFileApi = class extends BaseApiClient {
 				bucketId: _this6.bucketId,
 				sourceKey: fromPath,
 				destinationKey: toPath,
-				destinationBucket: options === null || options === void 0 ? void 0 : options.destinationBucket
+				destinationBucket: options === null || options === void 0 ? void 0 : options.destinationBucket,
+				sourceVersionId: options === null || options === void 0 ? void 0 : options.sourceVersionId
 			}, { headers: _this6.headers });
 		});
 	}
@@ -1355,6 +1357,7 @@ var StorageFileApi = class extends BaseApiClient {
 	* @param fromPath The original file path, including the current file name. For example `folder/image.png`.
 	* @param toPath The new file path, including the new file name. For example `folder/image-copy.png`.
 	* @param options The destination options.
+	* @param options.sourceVersionId The version id of the source object to copy.
 	* @returns Promise with response containing copied file path or error
 	*
 	* @example Copy file
@@ -1388,7 +1391,8 @@ var StorageFileApi = class extends BaseApiClient {
 				bucketId: _this7.bucketId,
 				sourceKey: fromPath,
 				destinationKey: toPath,
-				destinationBucket: options === null || options === void 0 ? void 0 : options.destinationBucket
+				destinationBucket: options === null || options === void 0 ? void 0 : options.destinationBucket,
+				sourceVersionId: options === null || options === void 0 ? void 0 : options.sourceVersionId
 			}, { headers: _this7.headers })).Key };
 		});
 	}
@@ -1402,6 +1406,7 @@ var StorageFileApi = class extends BaseApiClient {
 	* @param options.download triggers the file as a download if set to true. Set this parameter as the name of the file if you want to trigger the download with a different filename.
 	* @param options.transform Transform the asset before serving it to the client.
 	* @param options.cacheNonce Append a cache nonce parameter to the URL to invalidate the cache.
+	* @param options.versionId Create a signed URL for a specific object version rather than the current one.
 	* @returns Promise with response containing signed URL or error
 	*
 	* @example Create Signed URL
@@ -1456,7 +1461,7 @@ var StorageFileApi = class extends BaseApiClient {
 		return _this8.handleOperation(async () => {
 			let _path = _this8._getFinalPath(path);
 			const hasTransform = typeof (options === null || options === void 0 ? void 0 : options.transform) === "object" && options.transform !== null && Object.keys(options.transform).length > 0;
-			let data = await post(_this8.fetch, `${_this8.url}/object/sign/${_path}`, _objectSpread2({ expiresIn }, hasTransform ? { transform: options.transform } : {}), { headers: _this8.headers });
+			let data = await post(_this8.fetch, `${_this8.url}/object/sign/${_path}`, _objectSpread2(_objectSpread2({ expiresIn }, hasTransform ? { transform: options.transform } : {}), (options === null || options === void 0 ? void 0 : options.versionId) != null ? { versionId: options.versionId } : {}), { headers: _this8.headers });
 			const query = new URLSearchParams();
 			if (options === null || options === void 0 ? void 0 : options.download) query.set("download", options.download === true ? "" : options.download);
 			if ((options === null || options === void 0 ? void 0 : options.cacheNonce) != null) query.set("cacheNonce", String(options.cacheNonce));
@@ -1530,7 +1535,7 @@ var StorageFileApi = class extends BaseApiClient {
 	* @category Storage
 	* @subcategory File Buckets
 	* @param path The full path and file name of the file to be downloaded. For example `folder/image.png`.
-	* @param options Optional settings: `transform` to transform the asset before serving it to the client, and `cacheNonce` to append a cache nonce parameter to the URL to invalidate the cache.
+	* @param options Optional settings: `transform` to transform the asset before serving it to the client, `cacheNonce` to append a cache nonce parameter to the URL to invalidate the cache, and `versionId` to download a specific object version.
 	* @param parameters Additional fetch parameters like signal for cancellation. Supports standard fetch options including cache control.
 	* @returns BlobDownloadBuilder instance for downloading the file
 	*
@@ -1594,6 +1599,7 @@ var StorageFileApi = class extends BaseApiClient {
 		const query = new URLSearchParams();
 		if (options === null || options === void 0 ? void 0 : options.transform) this.applyTransformOptsToQuery(query, options.transform);
 		if ((options === null || options === void 0 ? void 0 : options.cacheNonce) != null) query.set("cacheNonce", String(options.cacheNonce));
+		if ((options === null || options === void 0 ? void 0 : options.versionId) != null) query.set("versionId", String(options.versionId));
 		const queryString = query.toString();
 		const _path = this._getFinalPath(path);
 		const downloadFn = () => get(this.fetch, `${this.url}/${renderPath}/${_path}${queryString ? `?${queryString}` : ""}`, {
@@ -1611,6 +1617,7 @@ var StorageFileApi = class extends BaseApiClient {
 	* @category Storage
 	* @subcategory File Buckets
 	* @param path The file path, including the file name. For example `folder/image.png`.
+	* @param options Optional settings, including `versionId` to retrieve a specific object version.
 	* @returns Promise with response containing file metadata or error
 	*
 	* @example Get file info
@@ -1626,11 +1633,14 @@ var StorageFileApi = class extends BaseApiClient {
 	* }
 	* ```
 	*/
-	async info(path) {
+	async info(path, options) {
 		var _this10 = this;
 		const _path = _this10._getFinalPath(path);
+		const query = new URLSearchParams();
+		if ((options === null || options === void 0 ? void 0 : options.versionId) != null) query.set("versionId", String(options.versionId));
+		const queryString = query.toString();
 		return _this10.handleOperation(async () => {
-			return recursiveToCamel(await get(_this10.fetch, `${_this10.url}/object/info/${_path}`, { headers: _this10.headers }));
+			return recursiveToCamel(await get(_this10.fetch, `${_this10.url}/object/info/${_path}${queryString ? `?${queryString}` : ""}`, { headers: _this10.headers }));
 		});
 	}
 	/**
@@ -1681,6 +1691,7 @@ var StorageFileApi = class extends BaseApiClient {
 	* @param options.download Triggers the file as a download if set to true. Set this parameter as the name of the file if you want to trigger the download with a different filename.
 	* @param options.transform Transform the asset before serving it to the client.
 	* @param options.cacheNonce Append a cache nonce parameter to the URL to invalidate the cache.
+	* @param options.versionId Return the URL for a specific object version rather than the current one.
 	* @returns Object with public URL
 	*
 	* @example Returns the URL for an asset in a public bucket
@@ -1736,6 +1747,7 @@ var StorageFileApi = class extends BaseApiClient {
 		if (options === null || options === void 0 ? void 0 : options.download) query.set("download", options.download === true ? "" : options.download);
 		if (options === null || options === void 0 ? void 0 : options.transform) this.applyTransformOptsToQuery(query, options.transform);
 		if ((options === null || options === void 0 ? void 0 : options.cacheNonce) != null) query.set("cacheNonce", String(options.cacheNonce));
+		if ((options === null || options === void 0 ? void 0 : options.versionId) != null) query.set("versionId", String(options.versionId));
 		const queryString = query.toString();
 		const renderPath = typeof (options === null || options === void 0 ? void 0 : options.transform) === "object" && options.transform !== null && Object.keys(options.transform).length > 0 ? "render/image" : "object";
 		return { data: { publicUrl: encodeURI(`${this.url}/${renderPath}/public/${_path}`) + (queryString ? `?${queryString}` : "") } };
@@ -1748,7 +1760,9 @@ var StorageFileApi = class extends BaseApiClient {
 	*
 	* @category Storage
 	* @subcategory File Buckets
-	* @param paths An array of files to delete, including the path and file name. For example [`'folder/image.png'`].
+	* @param paths An array of files to delete. Each entry is either a path (deletes whichever
+	* version is currently at that path, e.g. `'folder/image.png'`), or `{ path, versionId }` to
+	* delete an exact version current or archived (e.g. `{ path: 'folder/image.png', versionId: '...' }`).
 	* @returns Promise with response containing array of deleted file objects or error
 	*
 	* @example Delete file
@@ -1765,6 +1779,14 @@ var StorageFileApi = class extends BaseApiClient {
 	*   "data": [],
 	*   "error": null
 	* }
+	* ```
+	*
+	* @example Delete a specific object version
+	* ```js
+	* const { data, error } = await supabase
+	*   .storage
+	*   .from('avatars')
+	*   .remove([{ path: 'folder/avatar1.png', versionId: 'noncurrent-version-id' }])
 	* ```
 	*
 	* @remarks
@@ -2009,7 +2031,7 @@ var StorageFileApi = class extends BaseApiClient {
 		return query;
 	}
 };
-var DEFAULT_HEADERS = { "X-Client-Info": `storage-js/2.112.3` };
+var DEFAULT_HEADERS = { "X-Client-Info": `storage-js/2.117.2` };
 var StorageBucketApi = class extends BaseApiClient {
 	constructor(url, headers = {}, fetch$1, opts) {
 		const baseUrl = new URL(url);
@@ -2127,6 +2149,8 @@ var StorageBucketApi = class extends BaseApiClient {
 	* Each mime type specified can be a wildcard, e.g. image/*, or a specific mime type, e.g. image/png.
 	* @param options.type (private-beta) specifies the bucket type. see `BucketType` for more details.
 	*   - default bucket type is `STANDARD`
+	* @param options.versioningStatus the bucket's initial object versioning status.
+	* The default value is `DISABLED`
 	* @returns Promise with response containing newly created bucket name or error
 	*
 	* @example Create bucket
@@ -2165,7 +2189,8 @@ var StorageBucketApi = class extends BaseApiClient {
 				type: options.type,
 				public: options.public,
 				file_size_limit: options.fileSizeLimit,
-				allowed_mime_types: options.allowedMimeTypes
+				allowed_mime_types: options.allowedMimeTypes,
+				versioning_status: options.versioningStatus
 			}, { headers: _this3.headers });
 		});
 	}
@@ -2182,6 +2207,8 @@ var StorageBucketApi = class extends BaseApiClient {
 	* @param options.allowedMimeTypes specifies the allowed mime types that this bucket can accept during upload.
 	* The default value is null, which allows files with all mime types to be uploaded.
 	* Each mime type specified can be a wildcard, e.g. image/*, or a specific mime type, e.g. image/png.
+	* @param options.versioningStatus the bucket's new object versioning status. `DISABLED` is not
+	* valid here, there's no transition back to it once versioning has been touched.
 	* @returns Promise with response containing success message or error
 	*
 	* @example Update bucket
@@ -2219,7 +2246,8 @@ var StorageBucketApi = class extends BaseApiClient {
 				name: id,
 				public: options.public,
 				file_size_limit: options.fileSizeLimit,
-				allowed_mime_types: options.allowedMimeTypes
+				allowed_mime_types: options.allowedMimeTypes,
+				versioning_status: options.versioningStatus
 			}, { headers: _this4.headers });
 		});
 	}
@@ -2299,6 +2327,153 @@ var StorageBucketApi = class extends BaseApiClient {
 		});
 	}
 	/**
+	* Returns the lifecycle policy stored on a bucket.
+	*
+	* Fails with `NoSuchLifecycleConfiguration` when the bucket has no policy.
+	*
+	* These rules expire previous versions of objects, not the current one.
+	* Turn versioning on or there is nothing for the policy to act on.
+	* Standard buckets only. Returns `FeatureNotEnabled` if lifecycle is off
+	* for the project.
+	*
+	* @category Storage
+	* @subcategory File Buckets
+	* @param id The unique identifier of the bucket.
+	* @returns Promise with the lifecycle configuration or error
+	*
+	* @example Get lifecycle configuration
+	* ```js
+	* const { data, error } = await supabase
+	*   .storage
+	*   .getBucketLifecycle('avatars')
+	* ```
+	*
+	* Response:
+	* ```json
+	* {
+	*   "data": {
+	*     "rules": [
+	*       {
+	*         "id": "expire-history",
+	*         "status": "Enabled",
+	*         "filter": {},
+	*         "noncurrentVersionExpiration": {
+	*           "noncurrentDays": 30,
+	*           "newerNoncurrentVersions": 2
+	*         }
+	*       }
+	*     ]
+	*   },
+	*   "error": null
+	* }
+	* ```
+	*
+	* @remarks
+	* - RLS policy permissions required:
+	*   - `buckets` table permissions: `select`
+	*   - `objects` table permissions: none
+	* - Refer to the [Storage guide](/docs/guides/storage/security/access-control) on how access control works
+	*/
+	async getBucketLifecycle(id) {
+		var _this7 = this;
+		return _this7.handleOperation(async () => {
+			return await get(_this7.fetch, _this7.bucketLifecycleUrl(id), { headers: _this7.headers });
+		});
+	}
+	/**
+	* Replaces the lifecycle policy on a bucket.
+	*
+	* The `rules` array you send is the whole policy. Anything previously stored
+	* is overwritten. Send at least one rule. Call {@link deleteBucketLifecycle}
+	* to remove the policy.
+	*
+	* Each rule currently supports only `noncurrentVersionExpiration`. `filter`
+	* is required and must be `{}`. Prefix filters, tag filters, and current-object
+	* expiration are rejected. Rule IDs must be unique. Omit `id` and the
+	* server generates one.
+	*
+	* Standard buckets only. Returns `FeatureNotEnabled` if lifecycle is off
+	* for the project.
+	*
+	* @category Storage
+	* @subcategory File Buckets
+	* @param id The unique identifier of the bucket.
+	* @param configuration The full lifecycle configuration to store.
+	* @returns Promise with the stored configuration or error
+	*
+	* @example Replace lifecycle configuration
+	* ```js
+	* const { data, error } = await supabase
+	*   .storage
+	*   .updateBucketLifecycle('avatars', {
+	*     rules: [
+	*       {
+	*         id: 'expire-history',
+	*         status: 'Enabled',
+	*         filter: {},
+	*         noncurrentVersionExpiration: {
+	*           noncurrentDays: 30,
+	*           newerNoncurrentVersions: 2,
+	*         },
+	*       },
+	*     ],
+	*   })
+	* ```
+	*
+	* @remarks
+	* - RLS policy permissions required:
+	*   - `buckets` table permissions: `select` and `update`
+	*   - `objects` table permissions: none
+	* - Refer to the [Storage guide](/docs/guides/storage/security/access-control) on how access control works
+	*/
+	async updateBucketLifecycle(id, configuration) {
+		var _this8 = this;
+		return _this8.handleOperation(async () => {
+			return await put(_this8.fetch, _this8.bucketLifecycleUrl(id), configuration, { headers: _this8.headers });
+		});
+	}
+	/**
+	* Removes the lifecycle policy from a bucket.
+	*
+	* Safe to call when no policy is stored. The response is still success.
+	* Standard buckets only. Returns `FeatureNotEnabled` if lifecycle is off
+	* for the project.
+	*
+	* @category Storage
+	* @subcategory File Buckets
+	* @param id The unique identifier of the bucket.
+	* @returns Promise with success message or error
+	*
+	* @example Delete lifecycle configuration
+	* ```js
+	* const { data, error } = await supabase
+	*   .storage
+	*   .deleteBucketLifecycle('avatars')
+	* ```
+	*
+	* Response:
+	* ```json
+	* {
+	*   "data": {
+	*     "message": "Successfully deleted"
+	*   },
+	*   "error": null
+	* }
+	* ```
+	*
+	* @remarks
+	* - RLS policy permissions required:
+	*   - `buckets` table permissions: `select` and `update`
+	*   - `objects` table permissions: none
+	* - Refer to the [Storage guide](/docs/guides/storage/security/access-control) on how access control works
+	*/
+	async deleteBucketLifecycle(id) {
+		var _this9 = this;
+		return _this9.handleOperation(async () => {
+			return await remove(_this9.fetch, _this9.bucketLifecycleUrl(id), {}, { headers: _this9.headers });
+		});
+	}
+	/**
 	* Purges the CDN cache for an entire bucket.
 	*
 	* Maps to `DELETE /cdn/{bucket}` on the Storage API. The server
@@ -2335,13 +2510,16 @@ var StorageBucketApi = class extends BaseApiClient {
 	* ```
 	*/
 	async purgeBucketCache(id, options, parameters) {
-		var _this7 = this;
-		return _this7.handleOperation(async () => {
+		var _this10 = this;
+		return _this10.handleOperation(async () => {
 			const query = new URLSearchParams();
 			if (options === null || options === void 0 ? void 0 : options.transformations) query.set("transformations", "true");
 			const queryString = query.toString();
-			return await remove(_this7.fetch, `${_this7.url}/cdn/${encodeStoragePath(id)}${queryString ? `?${queryString}` : ""}`, {}, { headers: _this7.headers }, parameters);
+			return await remove(_this10.fetch, `${_this10.url}/cdn/${encodeStoragePath(id)}${queryString ? `?${queryString}` : ""}`, {}, { headers: _this10.headers }, parameters);
 		});
+	}
+	bucketLifecycleUrl(id) {
+		return `${this.url}/bucket/${encodeStoragePath(id)}/lifecycle`;
 	}
 	listBucketOptionsToQueryString(options) {
 		const params = {};
@@ -3356,7 +3534,7 @@ var VectorIndexScope = class extends VectorDataApi {
 	* @category Storage
 	* @subcategory Vector Buckets
 	* @param options - Query options (bucket and index names automatically set)
-	* @returns Promise with response containing matches array of similar vectors ordered by distance or error
+	* @returns Promise with response containing vectors ordered by distance, an optional pagination token, or an error
 	*
 	* @example Query similar vectors
 	* ```typescript

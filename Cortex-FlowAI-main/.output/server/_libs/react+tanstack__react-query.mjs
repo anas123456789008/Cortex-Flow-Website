@@ -1,5 +1,5 @@
 import { i as __toESM, t as __commonJSMin } from "../_runtime.mjs";
-import { a as noop, i as environmentManager, n as QueryObserver, o as shouldThrowError, r as notifyManager } from "./tanstack__query-core.mjs";
+import { a as shouldThrowError, i as noop, n as QueryObserver, r as notifyManager } from "./tanstack__query-core.mjs";
 //#region node_modules/react/cjs/react-jsx-runtime.production.js
 /**
 * @license React
@@ -11,8 +11,7 @@ import { a as noop, i as environmentManager, n as QueryObserver, o as shouldThro
 * LICENSE file in the root directory of this source tree.
 */
 var require_react_jsx_runtime_production = /* @__PURE__ */ __commonJSMin(((exports) => {
-	var REACT_ELEMENT_TYPE = Symbol.for("react.transitional.element");
-	var REACT_FRAGMENT_TYPE = Symbol.for("react.fragment");
+	var REACT_ELEMENT_TYPE = Symbol.for("react.transitional.element"), REACT_FRAGMENT_TYPE = Symbol.for("react.fragment");
 	function jsxProd(type, config, maybeKey) {
 		var key = null;
 		void 0 !== maybeKey && (key = "" + maybeKey);
@@ -51,19 +50,7 @@ var require_jsx_runtime = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 * LICENSE file in the root directory of this source tree.
 */
 var require_react_production = /* @__PURE__ */ __commonJSMin(((exports) => {
-	var REACT_ELEMENT_TYPE = Symbol.for("react.transitional.element");
-	var REACT_PORTAL_TYPE = Symbol.for("react.portal");
-	var REACT_FRAGMENT_TYPE = Symbol.for("react.fragment");
-	var REACT_STRICT_MODE_TYPE = Symbol.for("react.strict_mode");
-	var REACT_PROFILER_TYPE = Symbol.for("react.profiler");
-	var REACT_CONSUMER_TYPE = Symbol.for("react.consumer");
-	var REACT_CONTEXT_TYPE = Symbol.for("react.context");
-	var REACT_FORWARD_REF_TYPE = Symbol.for("react.forward_ref");
-	var REACT_SUSPENSE_TYPE = Symbol.for("react.suspense");
-	var REACT_MEMO_TYPE = Symbol.for("react.memo");
-	var REACT_LAZY_TYPE = Symbol.for("react.lazy");
-	var REACT_ACTIVITY_TYPE = Symbol.for("react.activity");
-	var MAYBE_ITERATOR_SYMBOL = Symbol.iterator;
+	var REACT_ELEMENT_TYPE = Symbol.for("react.transitional.element"), REACT_PORTAL_TYPE = Symbol.for("react.portal"), REACT_FRAGMENT_TYPE = Symbol.for("react.fragment"), REACT_STRICT_MODE_TYPE = Symbol.for("react.strict_mode"), REACT_PROFILER_TYPE = Symbol.for("react.profiler"), REACT_CONSUMER_TYPE = Symbol.for("react.consumer"), REACT_CONTEXT_TYPE = Symbol.for("react.context"), REACT_FORWARD_REF_TYPE = Symbol.for("react.forward_ref"), REACT_SUSPENSE_TYPE = Symbol.for("react.suspense"), REACT_MEMO_TYPE = Symbol.for("react.memo"), REACT_LAZY_TYPE = Symbol.for("react.lazy"), REACT_ACTIVITY_TYPE = Symbol.for("react.activity"), REACT_VIEW_TRANSITION_TYPE = Symbol.for("react.view_transition"), MAYBE_ITERATOR_SYMBOL = Symbol.iterator;
 	function getIteratorFn(maybeIterable) {
 		if (null === maybeIterable || "object" !== typeof maybeIterable) return null;
 		maybeIterable = MAYBE_ITERATOR_SYMBOL && maybeIterable[MAYBE_ITERATOR_SYMBOL] || maybeIterable["@@iterator"];
@@ -76,9 +63,7 @@ var require_react_production = /* @__PURE__ */ __commonJSMin(((exports) => {
 		enqueueForceUpdate: function() {},
 		enqueueReplaceState: function() {},
 		enqueueSetState: function() {}
-	};
-	var assign = Object.assign;
-	var emptyObject = {};
+	}, assign = Object.assign, emptyObject = {};
 	function Component(props, context, updater) {
 		this.props = props;
 		this.context = context;
@@ -112,8 +97,7 @@ var require_react_production = /* @__PURE__ */ __commonJSMin(((exports) => {
 		A: null,
 		T: null,
 		S: null
-	};
-	var hasOwnProperty = Object.prototype.hasOwnProperty;
+	}, hasOwnProperty = Object.prototype.hasOwnProperty;
 	function ReactElement(type, key, props) {
 		var refProp = props.ref;
 		return {
@@ -201,14 +185,13 @@ var require_react_production = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 	function lazyInitializer(payload) {
 		if (-1 === payload._status) {
-			var ctor = payload._result;
-			ctor = ctor();
-			ctor.then(function(moduleObject) {
-				if (0 === payload._status || -1 === payload._status) payload._status = 1, payload._result = moduleObject;
+			var ctor = payload._result, thenable = ctor();
+			thenable.then(function(moduleObject) {
+				if (0 === payload._status || -1 === payload._status) payload._status = 1, payload._result = moduleObject, void 0 === thenable.status && (thenable.status = "fulfilled", thenable.value = moduleObject);
 			}, function(error) {
-				if (0 === payload._status || -1 === payload._status) payload._status = 2, payload._result = error;
+				if (0 === payload._status || -1 === payload._status) payload._status = 2, payload._result = error, void 0 === thenable.status && (thenable.status = "rejected", thenable.reason = error);
 			});
-			-1 === payload._status && (payload._status = 0, payload._result = ctor);
+			-1 === payload._status && (payload._status = 0, payload._result = thenable);
 		}
 		if (1 === payload._status) return payload._result.default;
 		throw payload._result;
@@ -228,6 +211,27 @@ var require_react_production = /* @__PURE__ */ __commonJSMin(((exports) => {
 		}
 		console.error(error);
 	};
+	function startTransition(scope) {
+		var prevTransition = ReactSharedInternals.T, currentTransition = {};
+		currentTransition.types = null !== prevTransition ? prevTransition.types : null;
+		ReactSharedInternals.T = currentTransition;
+		try {
+			var returnValue = scope(), onStartTransitionFinish = ReactSharedInternals.S;
+			null !== onStartTransitionFinish && onStartTransitionFinish(currentTransition, returnValue);
+			"object" === typeof returnValue && null !== returnValue && "function" === typeof returnValue.then && returnValue.then(noop, reportGlobalError);
+		} catch (error) {
+			reportGlobalError(error);
+		} finally {
+			null !== prevTransition && null !== currentTransition.types && (prevTransition.types = currentTransition.types), ReactSharedInternals.T = prevTransition;
+		}
+	}
+	function addTransitionType(type) {
+		var transition = ReactSharedInternals.T;
+		if (null !== transition) {
+			var transitionTypes = transition.types;
+			null === transitionTypes ? transition.types = [type] : -1 === transitionTypes.indexOf(type) && transitionTypes.push(type);
+		} else startTransition(addTransitionType.bind(null, type));
+	}
 	var Children = {
 		map: mapChildren,
 		forEach: function(children, forEachFunc, forEachContext) {
@@ -260,6 +264,7 @@ var require_react_production = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.PureComponent = PureComponent;
 	exports.StrictMode = REACT_STRICT_MODE_TYPE;
 	exports.Suspense = REACT_SUSPENSE_TYPE;
+	exports.ViewTransition = REACT_VIEW_TRANSITION_TYPE;
 	exports.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE = ReactSharedInternals;
 	exports.__COMPILER_RUNTIME = {
 		__proto__: null,
@@ -267,6 +272,7 @@ var require_react_production = /* @__PURE__ */ __commonJSMin(((exports) => {
 			return ReactSharedInternals.H.useMemoCache(size);
 		}
 	};
+	exports.addTransitionType = addTransitionType;
 	exports.cache = function(fn) {
 		return function() {
 			return fn.apply(null, arguments);
@@ -342,19 +348,7 @@ var require_react_production = /* @__PURE__ */ __commonJSMin(((exports) => {
 			compare: void 0 === compare ? null : compare
 		};
 	};
-	exports.startTransition = function(scope) {
-		var prevTransition = ReactSharedInternals.T, currentTransition = {};
-		ReactSharedInternals.T = currentTransition;
-		try {
-			var returnValue = scope(), onStartTransitionFinish = ReactSharedInternals.S;
-			null !== onStartTransitionFinish && onStartTransitionFinish(currentTransition, returnValue);
-			"object" === typeof returnValue && null !== returnValue && "function" === typeof returnValue.then && returnValue.then(noop, reportGlobalError);
-		} catch (error) {
-			reportGlobalError(error);
-		} finally {
-			null !== prevTransition && null !== currentTransition.types && (prevTransition.types = currentTransition.types), ReactSharedInternals.T = prevTransition;
-		}
-	};
+	exports.startTransition = startTransition;
 	exports.unstable_useCacheRefresh = function() {
 		return ReactSharedInternals.H.useCacheRefresh();
 	};
@@ -413,7 +407,7 @@ var require_react_production = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.useTransition = function() {
 		return ReactSharedInternals.H.useTransition();
 	};
-	exports.version = "19.2.8";
+	exports.version = "19.3.0";
 }));
 //#endregion
 //#region node_modules/react/index.js
@@ -424,13 +418,43 @@ var require_react = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 //#region node_modules/@tanstack/react-query/build/modern/QueryClientProvider.js
 var import_react = /* @__PURE__ */ __toESM(require_react(), 1);
 var import_jsx_runtime = require_jsx_runtime();
+/**
+* The context that `useQueryClient` reads from. `QueryClientProvider` is the normal way to set it.
+*/
 var QueryClientContext = import_react.createContext(void 0);
+/**
+* The `useQueryClient` hook returns the current `QueryClient` instance.
+*
+* @param queryClient - Use this to use a custom `QueryClient`. Otherwise, the one from the nearest context will
+* be used.
+* @returns The current `QueryClient` instance.
+* @throws If no `queryClient` argument is passed and no `QueryClientProvider` is found in the component tree.
+*/
 var useQueryClient = (queryClient) => {
 	const client = import_react.useContext(QueryClientContext);
 	if (queryClient) return queryClient;
 	if (!client) throw new Error("No QueryClient set, use QueryClientProvider to set one");
 	return client;
 };
+/**
+* Use the `QueryClientProvider` component to connect and provide a `QueryClient` to your application. Also
+* calls `client.mount()`/`client.unmount()` as this component mounts/unmounts, which subscribes the client to
+* focus/online events (resuming any paused mutations and refetching as needed when the app regains focus or
+* comes back online).
+*
+* @returns The provided `children`, wrapped so they can read the `QueryClient` via `useQueryClient`.
+*
+* @example
+* ```tsx
+* import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+*
+* const queryClient = new QueryClient()
+*
+* function App() {
+*   return <QueryClientProvider client={queryClient}>...</QueryClientProvider>
+* }
+* ```
+*/
 var QueryClientProvider = ({ client, children }) => {
 	import_react.useEffect(() => {
 		client.mount();
@@ -446,31 +470,80 @@ var QueryClientProvider = ({ client, children }) => {
 //#endregion
 //#region node_modules/@tanstack/react-query/build/modern/IsRestoringProvider.js
 var IsRestoringContext = import_react.createContext(false);
+/**
+* If you are using `PersistQueryClientProvider`, you can also use the `useIsRestoring` hook alongside it to
+* check if a restore is currently in progress. `useQuery` and friends also check this internally to avoid
+* race conditions between the restore and mounting queries.
+*
+* @returns `true` while a persisted client is being restored, `false` otherwise.
+*/
 var useIsRestoring = () => import_react.useContext(IsRestoringContext);
 IsRestoringContext.Provider;
 //#endregion
 //#region node_modules/@tanstack/react-query/build/modern/QueryErrorResetBoundary.js
+/**
+* Resets any query errors within the boundary, so queries know they can try again.
+*/
 function createValue() {
 	let isReset = false;
 	return {
+		/**
+		* Clears the reset state, so queries know not to try again until the boundary is reset again.
+		*/
 		clearReset: () => {
 			isReset = false;
 		},
+		/**
+		* Resets any query errors within the boundary, so queries know they can try again.
+		*/
 		reset: () => {
 			isReset = true;
 		},
+		/**
+		* Returns whether the boundary has been reset and not yet cleared.
+		*/
 		isReset: () => {
 			return isReset;
 		}
 	};
 }
 var QueryErrorResetBoundaryContext = import_react.createContext(createValue());
+/**
+* This hook will reset any query errors within the closest `QueryErrorResetBoundary`. If there is no boundary
+* defined it will reset them globally.
+*
+* @returns The boundary's {@link QueryErrorResetBoundaryValue}.
+*
+* @example
+* ```tsx
+* import { ErrorBoundary } from 'react-error-boundary'
+* import { useQueryErrorResetBoundary } from '@tanstack/react-query'
+*
+* function App({ children }: { children: React.ReactNode }) {
+*   const { reset } = useQueryErrorResetBoundary()
+*
+*   return (
+*     <ErrorBoundary
+*       onReset={reset}
+*       fallbackRender={({ resetErrorBoundary }) => (
+*         <div>
+*           There was an error!
+*           <button onClick={() => resetErrorBoundary()}>Try again</button>
+*         </div>
+*       )}
+*     >
+*       {children}
+*     </ErrorBoundary>
+*   )
+* }
+* ```
+*/
 var useQueryErrorResetBoundary = () => import_react.useContext(QueryErrorResetBoundaryContext);
 //#endregion
 //#region node_modules/@tanstack/react-query/build/modern/errorBoundaryUtils.js
 var ensurePreventErrorBoundaryRetry = (options, errorResetBoundary, query) => {
 	const throwOnError = query?.state.error && typeof options.throwOnError === "function" ? shouldThrowError(options.throwOnError, [query.state.error, query]) : options.throwOnError;
-	if (options.suspense || options.experimental_prefetchInRender || throwOnError) {
+	if (options.suspense || throwOnError) {
 		if (!errorResetBoundary.isReset()) options.retryOnMount = false;
 	}
 };
@@ -493,7 +566,6 @@ var ensureSuspenseTimers = (defaultedOptions) => {
 		if (typeof defaultedOptions.gcTime === "number") defaultedOptions.gcTime = Math.max(defaultedOptions.gcTime, MIN_SUSPENSE_TIME_MS);
 	}
 };
-var willFetch = (result, isRestoring) => result.isLoading && result.isFetching && !isRestoring;
 var shouldSuspend = (defaultedOptions, result) => defaultedOptions?.suspense && result.isPending;
 var fetchOptimistic = (defaultedOptions, observer, errorResetBoundary) => observer.fetchOptimistic(defaultedOptions).catch(() => {
 	errorResetBoundary.clearReset();
@@ -505,14 +577,12 @@ function useBaseQuery(options, Observer, queryClient) {
 	const errorResetBoundary = useQueryErrorResetBoundary();
 	const client = useQueryClient(queryClient);
 	const defaultedOptions = client.defaultQueryOptions(options);
-	client.getDefaultOptions().queries?._experimental_beforeQuery?.(defaultedOptions);
 	const query = client.getQueryCache().get(defaultedOptions.queryHash);
 	const subscribed = options.subscribed !== false;
 	defaultedOptions._optimisticResults = isRestoring ? "isRestoring" : subscribed ? "optimistic" : void 0;
 	ensureSuspenseTimers(defaultedOptions);
 	ensurePreventErrorBoundaryRetry(defaultedOptions, errorResetBoundary, query);
 	useClearResetErrorBoundary(errorResetBoundary);
-	const isNewCacheEntry = !client.getQueryCache().get(defaultedOptions.queryHash);
 	const [observer] = import_react.useState(() => new Observer(client, defaultedOptions));
 	const result = observer.getOptimisticResult(defaultedOptions);
 	const shouldSubscribe = !isRestoring && subscribed;
@@ -532,10 +602,6 @@ function useBaseQuery(options, Observer, queryClient) {
 		query,
 		suspense: defaultedOptions.suspense
 	})) throw result.error;
-	client.getDefaultOptions().queries?._experimental_afterQuery?.(defaultedOptions, result);
-	if (defaultedOptions.experimental_prefetchInRender && !environmentManager.isServer() && willFetch(result, isRestoring)) (isNewCacheEntry ? fetchOptimistic(defaultedOptions, observer, errorResetBoundary) : query?.promise)?.catch(noop).finally(() => {
-		observer.updateResult();
-	});
 	return !defaultedOptions.notifyOnChangeProps ? observer.trackResult(result) : result;
 }
 //#endregion

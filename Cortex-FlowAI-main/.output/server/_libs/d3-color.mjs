@@ -13,16 +13,7 @@ function extend(parent, definition) {
 function Color() {}
 var darker = .7;
 var brighter = 1 / darker;
-var reI = "\\s*([+-]?\\d+)\\s*";
-var reN = "\\s*([+-]?(?:\\d*\\.)?\\d+(?:[eE][+-]?\\d+)?)\\s*";
-var reP = "\\s*([+-]?(?:\\d*\\.)?\\d+(?:[eE][+-]?\\d+)?)%\\s*";
-var reHex = /^#([0-9a-f]{3,8})$/;
-var reRgbInteger = new RegExp(`^rgb\\(${reI},${reI},${reI}\\)$`);
-var reRgbPercent = new RegExp(`^rgb\\(${reP},${reP},${reP}\\)$`);
-var reRgbaInteger = new RegExp(`^rgba\\(${reI},${reI},${reI},${reN}\\)$`);
-var reRgbaPercent = new RegExp(`^rgba\\(${reP},${reP},${reP},${reN}\\)$`);
-var reHslPercent = new RegExp(`^hsl\\(${reN},${reP},${reP}\\)$`);
-var reHslaPercent = new RegExp(`^hsla\\(${reN},${reP},${reP},${reN}\\)$`);
+var reI = "\\s*([+-]?\\d+)\\s*", reN = "\\s*([+-]?(?:\\d*\\.)?\\d+(?:[eE][+-]?\\d+)?)\\s*", reP = "\\s*([+-]?(?:\\d*\\.)?\\d+(?:[eE][+-]?\\d+)?)%\\s*", reHex = /^#([0-9a-f]{3,8})$/, reRgbInteger = new RegExp(`^rgb\\(${reI},${reI},${reI}\\)$`), reRgbPercent = new RegExp(`^rgb\\(${reP},${reP},${reP}\\)$`), reRgbaInteger = new RegExp(`^rgba\\(${reI},${reI},${reI},${reN}\\)$`), reRgbaPercent = new RegExp(`^rgba\\(${reP},${reP},${reP},${reN}\\)$`), reHslPercent = new RegExp(`^hsl\\(${reN},${reP},${reP}\\)$`), reHslaPercent = new RegExp(`^hsla\\(${reN},${reP},${reP},${reN}\\)$`);
 var named = {
 	aliceblue: 15792383,
 	antiquewhite: 16444375,

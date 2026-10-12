@@ -345,9 +345,7 @@ function isExt(v) {
 */
 //#endregion
 //#region node_modules/react-dropzone/dist/es/index.js
-var _excluded = ["children"];
-var _excluded2 = ["open"];
-var _excluded3 = [
+var _excluded = ["children"], _excluded2 = ["open"], _excluded3 = [
 	"refKey",
 	"role",
 	"onKeyDown",
@@ -358,8 +356,7 @@ var _excluded3 = [
 	"onDragOver",
 	"onDragLeave",
 	"onDrop"
-];
-var _excluded4 = [
+], _excluded4 = [
 	"refKey",
 	"onChange",
 	"onClick"
@@ -472,8 +469,8 @@ function _objectWithoutPropertiesLoose(source, excluded) {
 	if (source == null) return {};
 	var target = {};
 	var sourceKeys = Object.keys(source);
-	var key, i = 0;
-	for (; i < sourceKeys.length; i++) {
+	var key, i;
+	for (i = 0; i < sourceKeys.length; i++) {
 		key = sourceKeys[i];
 		if (excluded.indexOf(key) >= 0) continue;
 		target[key] = source[key];

@@ -1,7 +1,7 @@
 import { i as __toESM } from "../_runtime.mjs";
 import { t as supabase } from "./client-j4Rv7MKA.mjs";
 import { a as require_jsx_runtime, i as require_react, r as useQueryClient, t as useQuery } from "../_libs/react+tanstack__react-query.mjs";
-import { C as LoaderCircle, u as Sparkles, w as Lightbulb } from "../_libs/lucide-react.mjs";
+import { T as Lightbulb, u as Sparkles, w as LoaderCircle } from "../_libs/lucide-react.mjs";
 import { t as AppShell } from "./app-shell-Ddzd8qaQ.mjs";
 import { r as useTransactions } from "./finance-D95yg06q.mjs";
 import { n as toast } from "../_libs/sonner.mjs";

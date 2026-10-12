@@ -1,8 +1,7 @@
 import { t as __commonJSMin } from "../_runtime.mjs";
 //#region node_modules/eventemitter3/index.js
 var require_eventemitter3 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
-	var has = Object.prototype.hasOwnProperty;
-	var prefix = "~";
+	var has = Object.prototype.hasOwnProperty, prefix = "~";
 	/**
 	* Constructor to create a storage for our `EE` objects.
 	* An `Events` instance is a plain object whose properties are event names.

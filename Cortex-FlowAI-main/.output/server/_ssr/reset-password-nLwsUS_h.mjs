@@ -2,8 +2,8 @@ import { i as __toESM } from "../_runtime.mjs";
 import { t as supabase } from "./client-j4Rv7MKA.mjs";
 import { a as require_jsx_runtime, i as require_react } from "../_libs/react+tanstack__react-query.mjs";
 import { n as Brand, t as AuroraBackground } from "./aurora-background-BZIRHeSL.mjs";
-import { v as useNavigate } from "../_libs/@tanstack/react-router+[...].mjs";
-import { C as LoaderCircle } from "../_libs/lucide-react.mjs";
+import { S as useNavigate } from "../_libs/@tanstack/react-router+[...].mjs";
+import { w as LoaderCircle } from "../_libs/lucide-react.mjs";
 import { n as toast } from "../_libs/sonner.mjs";
 import { t as BsFillShieldLockFill } from "../_libs/react-icons.mjs";
 //#region node_modules/.nitro/vite/services/ssr/assets/reset-password-nLwsUS_h.js

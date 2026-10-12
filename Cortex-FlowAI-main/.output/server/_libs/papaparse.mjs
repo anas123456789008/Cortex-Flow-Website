@@ -3,7 +3,7 @@ import { r as __require, t as __commonJSMin } from "../_runtime.mjs";
 var require_papaparse = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	/* @license
 	Papa Parse
-	v5.5.4
+	v5.7.0
 	https://github.com/mholt/PapaParse
 	License: MIT
 	*/
@@ -45,8 +45,8 @@ var require_papaparse = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 		];
 		Papa.WORKERS_SUPPORTED = !IS_WORKER && !!global.Worker;
 		Papa.NODE_STREAM_INPUT = 1;
-		Papa.LocalChunkSize = 10485760;
-		Papa.RemoteChunkSize = 5242880;
+		Papa.LocalChunkSize = 1024 * 1024 * 10;
+		Papa.RemoteChunkSize = 1024 * 1024 * 5;
 		Papa.DefaultDelimiter = ",";
 		Papa.Parser = Parser;
 		Papa.ParserHandle = ParserHandle;
@@ -55,58 +55,6 @@ var require_papaparse = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 		Papa.StringStreamer = StringStreamer;
 		Papa.ReadableStreamStreamer = ReadableStreamStreamer;
 		if (typeof PAPA_BROWSER_CONTEXT === "undefined") Papa.DuplexStreamStreamer = DuplexStreamStreamer;
-		if (global.jQuery) {
-			var $ = global.jQuery;
-			$.fn.parse = function(options) {
-				var config = options.config || {};
-				var queue = [];
-				this.each(function(idx) {
-					if (!($(this).prop("tagName").toUpperCase() === "INPUT" && $(this).attr("type").toLowerCase() === "file" && global.FileReader) || !this.files || this.files.length === 0) return true;
-					for (var i = 0; i < this.files.length; i++) queue.push({
-						file: this.files[i],
-						inputElem: this,
-						instanceConfig: $.extend({}, config)
-					});
-				});
-				parseNextFile();
-				return this;
-				function parseNextFile() {
-					if (queue.length === 0) {
-						if (isFunction(options.complete)) options.complete();
-						return;
-					}
-					var f = queue[0];
-					if (isFunction(options.before)) {
-						var returned = options.before(f.file, f.inputElem);
-						if (typeof returned === "object") {
-							if (returned.action === "abort") {
-								error("AbortError", f.file, f.inputElem, returned.reason);
-								return;
-							} else if (returned.action === "skip") {
-								fileComplete();
-								return;
-							} else if (typeof returned.config === "object") f.instanceConfig = $.extend(f.instanceConfig, returned.config);
-						} else if (returned === "skip") {
-							fileComplete();
-							return;
-						}
-					}
-					var userCompleteFunc = f.instanceConfig.complete;
-					f.instanceConfig.complete = function(results) {
-						if (isFunction(userCompleteFunc)) userCompleteFunc(results, f.file, f.inputElem);
-						fileComplete();
-					};
-					Papa.parse(f.file, f.instanceConfig);
-				}
-				function error(name, file, elem, reason) {
-					if (isFunction(options.error)) options.error({ name }, file, elem, reason);
-				}
-				function fileComplete() {
-					queue.splice(0, 1);
-					parseNextFile();
-				}
-			};
-		}
 		if (IS_PAPA_WORKER) global.onmessage = workerThreadReceivedMessage;
 		function stripBom(string) {
 			if (string.charCodeAt(0) === 65279) return string.slice(1);
@@ -121,6 +69,11 @@ var require_papaparse = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 			}
 			_config.dynamicTyping = dynamicTyping;
 			_config.transform = isFunction(_config.transform) ? _config.transform : false;
+			if (_config.downloadTimeout !== void 0) {
+				var downloadTimeout = parseInt(_config.downloadTimeout);
+				if (isNaN(downloadTimeout)) throw new Error("Config downloadTimeout value (" + _config.downloadTimeout + ") not parsable by parseInt(val).");
+				_config.downloadTimeout = downloadTimeout;
+			}
 			if (_config.worker && Papa.WORKERS_SUPPORTED) {
 				var w = newWorker();
 				w.userStep = _config.step;
@@ -248,7 +201,10 @@ var require_papaparse = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 			/** Encloses a value around quotes if needed (makes a value safe for CSV insertion) */
 			function safe(str, col) {
 				if (typeof str === "undefined" || str === null) return "";
-				if (str.constructor === Date) return JSON.stringify(str).slice(1, 25);
+				if (str.constructor === Date) {
+					if (isNaN(str.getTime())) return "";
+					return str.toISOString();
+				}
 				var needsQuotes = false;
 				if (_escapeFormulae && typeof str === "string" && _escapeFormulae.test(str)) {
 					str = "'" + str;
@@ -383,7 +339,9 @@ var require_papaparse = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 					xhr.onload = bindFunction(this._chunkLoaded, this);
 					xhr.onerror = bindFunction(this._chunkError, this);
 				}
+				xhr.ontimeout = bindFunction(this._chunkTimeout, this);
 				xhr.open(this._config.downloadRequestBody ? "POST" : "GET", this._input, !IS_WORKER);
+				if (this._config.downloadTimeout && !IS_WORKER) xhr.timeout = this._config.downloadTimeout;
 				if (this._config.downloadRequestHeaders) {
 					var headers = this._config.downloadRequestHeaders;
 					for (var headerName in headers) xhr.setRequestHeader(headerName, headers[headerName]);
@@ -412,6 +370,9 @@ var require_papaparse = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 			this._chunkError = function(errorMessage) {
 				var errorText = xhr.statusText || errorMessage;
 				this._sendError(new Error(errorText));
+			};
+			this._chunkTimeout = function() {
+				this._chunkError("Request timed out after " + this._config.downloadTimeout + "ms");
 			};
 			function getFileSize(xhr) {
 				var contentRange = xhr.getResponseHeader("Content-Range");
@@ -657,6 +618,7 @@ var require_papaparse = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 					_results.meta.delimiter = _config.delimiter;
 				}
 				var parserConfig = copy(_config);
+				parserConfig.header = needsHeaderRow();
 				if (_config.preview && _config.header) parserConfig.preview++;
 				_input = input;
 				_parser = new Parser(parserConfig);
@@ -689,7 +651,7 @@ var require_papaparse = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 				_input = "";
 			};
 			this.guessLineEndings = function(input, quoteChar) {
-				input = input.substring(0, 1048576);
+				input = input.substring(0, 1024 * 1024);
 				var re = new RegExp(escapeRegExp(quoteChar) + "([^]*?)" + escapeRegExp(quoteChar), "gm");
 				input = input.replace(re, "");
 				var r = input.split("\r");
@@ -726,9 +688,7 @@ var require_papaparse = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 			}
 			function fillHeaderFields() {
 				if (!_results) return;
-				function addHeader(header, i) {
-					header = stripBom(header);
-					if (isFunction(_config.transformHeader)) header = _config.transformHeader(header, i);
+				function addHeader(header) {
 					_fields.push(header);
 				}
 				if (Array.isArray(_results.data[0])) {
@@ -741,21 +701,19 @@ var require_papaparse = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 				return (_config.dynamicTyping[field] || _config.dynamicTyping) === true;
 			}
 			function parseDynamic(field, value) {
-				if (shouldApplyDynamicTyping(field)) {
-					if (value === "true" || value === "TRUE") return true;
-					else if (value === "false" || value === "FALSE") return false;
-					else if (testFloat(value)) return parseFloat(value);
-					else if (ISO_DATE.test(value)) return new Date(value);
-					else return value === "" ? null : value;
-				}
+				if (shouldApplyDynamicTyping(field)) if (value === "true" || value === "TRUE") return true;
+				else if (value === "false" || value === "FALSE") return false;
+				else if (testFloat(value)) return parseFloat(value);
+				else if (ISO_DATE.test(value)) return new Date(value);
+				else return value === "" ? null : value;
 				return value;
 			}
 			function applyHeaderAndDynamicTypingAndTransformation() {
 				if (!_results || !_config.header && !_config.dynamicTyping && !_config.transform) return _results;
 				function processRow(rowSource, i) {
 					var row = _config.header ? {} : [];
-					var j = 0;
-					for (; j < rowSource.length; j++) {
+					var j;
+					for (j = 0; j < rowSource.length; j++) {
 						var field = j;
 						var value = rowSource[j];
 						if (_config.header) field = j >= _fields.length ? "__parsed_extra" : _fields[j];
@@ -817,7 +775,7 @@ var require_papaparse = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 						}
 					}
 					if (preview.data.length > 0) avgFieldCount /= preview.data.length - emptyLinesCount;
-					if ((typeof bestDelta === "undefined" || delta <= bestDelta) && (typeof maxFieldCount === "undefined" || avgFieldCount > maxFieldCount) && avgFieldCount > 1.99) {
+					if (avgFieldCount > 1.99 && (typeof bestDelta === "undefined" || delta < bestDelta || delta === bestDelta && avgFieldCount > maxFieldCount)) {
 						bestDelta = delta;
 						bestDelim = delim;
 						maxFieldCount = avgFieldCount;

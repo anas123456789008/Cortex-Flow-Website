@@ -94,11 +94,18 @@ var WebSocketFactory = class {
 };
 //#endregion
 //#region node_modules/@supabase/realtime-js/dist/module/lib/constants.js
-var DEFAULT_VERSION = `realtime-js/2.112.3`;
+var DEFAULT_VERSION = `realtime-js/2.117.2`;
 var VSN_1_0_0 = "1.0.0";
 var VSN_2_0_0 = "2.0.0";
 var DEFAULT_VSN = VSN_2_0_0;
 var DEFAULT_TIMEOUT = 1e4;
+/** Mirrors the Realtime server's own default for `postgres_changes_options.timeout`. */
+var DEFAULT_POSTGRES_CHANGES_WAIT_TIMEOUT = 15e3;
+/**
+* Headroom added to the join timeout when waiting on postgres_changes, covering the
+* CHANNEL_ERROR_BACKOFF_MS sleep (5s by default) the server takes before rejecting a join.
+*/
+var POSTGRES_CHANGES_WAIT_ERROR_GRACE = 1e4;
 var CHANNEL_STATES = {
 	closed: "closed",
 	errored: "errored",
@@ -521,8 +528,7 @@ var PresenceAdapter = class PresenceAdapter {
 };
 function transformState(presences) {
 	return presences.metas.map((presence) => {
-		const descriptors = Object.getOwnPropertyDescriptors(presence);
-		const transformedPresence = Object.defineProperties({}, descriptors);
+		const transformedPresence = Object.defineProperties({}, Object.getOwnPropertyDescriptors(presence));
 		transformedPresence["presence_ref"] = transformedPresence["phx_ref"];
 		delete transformedPresence["phx_ref"];
 		delete transformedPresence["phx_ref_prev"];
@@ -958,19 +964,19 @@ var RealtimeChannel = class RealtimeChannel {
 	* ```
 	*/
 	subscribe(callback, timeout = this.timeout) {
-		var _a, _b, _c;
+		var _a, _b, _c, _d;
 		if (!this.socket.isConnected()) this.socket.connect();
 		if (this.channelAdapter.isClosed()) {
-			const { config: { broadcast, presence, private: isPrivate } } = this.params;
+			const { config: { broadcast, presence, private: isPrivate, postgres_changes_options } } = this.params;
 			const postgres_changes = (_b = (_a = this.bindings.postgres_changes) === null || _a === void 0 ? void 0 : _a.map((r) => r.filter)) !== null && _b !== void 0 ? _b : [];
 			const presence_enabled = !!this.bindings[REALTIME_LISTEN_TYPES.PRESENCE] && this.bindings[REALTIME_LISTEN_TYPES.PRESENCE].length > 0 || ((_c = this.params.config.presence) === null || _c === void 0 ? void 0 : _c.enabled) === true;
 			const accessTokenPayload = {};
-			const config = {
+			const config = Object.assign({
 				broadcast,
 				presence: Object.assign(Object.assign({}, presence), { enabled: presence_enabled }),
 				postgres_changes,
 				private: isPrivate
-			};
+			}, postgres_changes_options ? { postgres_changes_options } : {});
 			if (this.socket.accessTokenValue) accessTokenPayload.access_token = this.socket.accessTokenValue;
 			this._onError((reason) => {
 				callback === null || callback === void 0 || callback(REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR, normalizeChannelError(reason));
@@ -978,7 +984,8 @@ var RealtimeChannel = class RealtimeChannel {
 			this._onClose(() => callback === null || callback === void 0 ? void 0 : callback(REALTIME_SUBSCRIBE_STATES.CLOSED));
 			this.updateJoinPayload(Object.assign({ config }, accessTokenPayload));
 			this._updateFilterMessage();
-			this.channelAdapter.subscribe(timeout).receive("ok", async ({ postgres_changes }) => {
+			const joinTimeout = (postgres_changes_options === null || postgres_changes_options === void 0 ? void 0 : postgres_changes_options.wait) && postgres_changes.length > 0 ? Math.max(timeout, ((_d = postgres_changes_options.timeout) !== null && _d !== void 0 ? _d : DEFAULT_POSTGRES_CHANGES_WAIT_TIMEOUT) + POSTGRES_CHANGES_WAIT_ERROR_GRACE) : timeout;
+			this.channelAdapter.subscribe(joinTimeout).receive("ok", async ({ postgres_changes }) => {
 				if (!this.socket._isManualToken()) this.socket.setAuth();
 				if (postgres_changes === void 0) {
 					callback === null || callback === void 0 || callback(REALTIME_SUBSCRIBE_STATES.SUBSCRIBED);
@@ -1321,7 +1328,9 @@ var RealtimeChannel = class RealtimeChannel {
 	async send(args, opts = {}) {
 		var _a, _b;
 		if (!this.channelAdapter.canPush() && args.type === "broadcast") {
-			console.warn("Realtime send() is automatically falling back to REST API. This behavior will be deprecated in the future. Please use httpSend() explicitly for REST delivery.");
+			const fallbackWarning = "Realtime send() is automatically falling back to REST API. This behavior will be deprecated in the future. Please use httpSend() explicitly for REST delivery.";
+			if (this.socket.hasLogger()) this.socket.log("channel", fallbackWarning);
+			else console.warn(fallbackWarning);
 			const { event, payload: endpoint_payload } = args;
 			const headers = {
 				apikey: this.socket.apiKey ? this.socket.apiKey : "",
@@ -1448,16 +1457,15 @@ var RealtimeChannel = class RealtimeChannel {
 				"broadcast",
 				"presence",
 				"postgres_changes"
-			].includes(typeLower)) {
-				if ("id" in bind) {
-					const bindId = bind.id;
-					const bindEvent = (_b = bind.filter) === null || _b === void 0 ? void 0 : _b.event;
-					return bindId && ((_c = payload.ids) === null || _c === void 0 ? void 0 : _c.includes(bindId)) && (bindEvent === "*" || (bindEvent === null || bindEvent === void 0 ? void 0 : bindEvent.toLocaleLowerCase()) === ((_d = payload.data) === null || _d === void 0 ? void 0 : _d.type.toLocaleLowerCase()));
-				} else {
-					const bindEvent = (_f = (_e = bind === null || bind === void 0 ? void 0 : bind.filter) === null || _e === void 0 ? void 0 : _e.event) === null || _f === void 0 ? void 0 : _f.toLocaleLowerCase();
-					return bindEvent === "*" || bindEvent === ((_g = payload === null || payload === void 0 ? void 0 : payload.event) === null || _g === void 0 ? void 0 : _g.toLocaleLowerCase());
-				}
-			} else return bind.type.toLocaleLowerCase() === typeLower;
+			].includes(typeLower)) if ("id" in bind) {
+				const bindId = bind.id;
+				const bindEvent = (_b = bind.filter) === null || _b === void 0 ? void 0 : _b.event;
+				return bindId && ((_c = payload.ids) === null || _c === void 0 ? void 0 : _c.includes(bindId)) && (bindEvent === "*" || (bindEvent === null || bindEvent === void 0 ? void 0 : bindEvent.toLocaleLowerCase()) === ((_d = payload.data) === null || _d === void 0 ? void 0 : _d.type.toLocaleLowerCase()));
+			} else {
+				const bindEvent = (_f = (_e = bind === null || bind === void 0 ? void 0 : bind.filter) === null || _e === void 0 ? void 0 : _e.event) === null || _f === void 0 ? void 0 : _f.toLocaleLowerCase();
+				return bindEvent === "*" || bindEvent === ((_g = payload === null || payload === void 0 ? void 0 : payload.event) === null || _g === void 0 ? void 0 : _g.toLocaleLowerCase());
+			}
+			else return bind.type.toLocaleLowerCase() === typeLower;
 		});
 	}
 	/** @internal */
@@ -1591,6 +1599,9 @@ var SocketAdapter = class {
 	}
 	log(kind, msg, data) {
 		this.socket.log(kind, msg, data);
+	}
+	hasLogger() {
+		return this.socket.hasLogger();
 	}
 	makeRef() {
 		return this.socket.makeRef();
@@ -1891,6 +1902,14 @@ var RealtimeClient = class {
 		this.socketAdapter.log(kind, msg, data);
 	}
 	/**
+	* Returns true if a custom `logger` has been configured on this client.
+	*
+	* @category Realtime
+	*/
+	hasLogger() {
+		return this.socketAdapter.hasLogger();
+	}
+	/**
 	* Returns the current state of the socket.
 	*
 	* @category Realtime
@@ -1965,6 +1984,10 @@ var RealtimeClient = class {
 	* When an `accessToken` callback IS configured, the callback is the source of truth:
 	* the client remains in callback mode and continues to refresh from it on heartbeat,
 	* even after a bootstrap/override `setAuth(token)` call.
+	*
+	* The callback is called on connect and on every heartbeat (`heartbeatIntervalMs`,
+	* default 25000ms). Its token must stay valid past the next call, or the server closes
+	* the channel at expiry with no automatic resubscribe.
 	*
 	* @param token A JWT string to override the token set on the client.
 	*

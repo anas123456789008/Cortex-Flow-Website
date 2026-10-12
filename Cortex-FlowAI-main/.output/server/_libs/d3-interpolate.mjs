@@ -56,8 +56,8 @@ function isNumberArray(x) {
 //#endregion
 //#region node_modules/d3-interpolate/src/array.js
 function genericArray(a, b) {
-	var nb = b ? b.length : 0, na = a ? Math.min(nb, a.length) : 0, x = new Array(na), c = new Array(nb), i = 0;
-	for (; i < na; ++i) x[i] = value_default(a[i], b[i]);
+	var nb = b ? b.length : 0, na = a ? Math.min(nb, a.length) : 0, x = new Array(na), c = new Array(nb), i;
+	for (i = 0; i < na; ++i) x[i] = value_default(a[i], b[i]);
 	for (; i < nb; ++i) c[i] = b[i];
 	return function(t) {
 		for (i = 0; i < na; ++i) c[i] = x[i](t);
@@ -94,8 +94,7 @@ function object_default(a, b) {
 }
 //#endregion
 //#region node_modules/d3-interpolate/src/string.js
-var reA = /[-+]?(?:\d+\.?\d*|\.?\d+)(?:[eE][-+]?\d+)?/g;
-var reB = new RegExp(reA.source, "g");
+var reA = /[-+]?(?:\d+\.?\d*|\.?\d+)(?:[eE][-+]?\d+)?/g, reB = new RegExp(reA.source, "g");
 function zero(b) {
 	return function() {
 		return b;
@@ -115,10 +114,9 @@ function string_default(a, b) {
 			if (s[i]) s[i] += bs;
 			else s[++i] = bs;
 		}
-		if ((am = am[0]) === (bm = bm[0])) {
-			if (s[i]) s[i] += bm;
-			else s[++i] = bm;
-		} else {
+		if ((am = am[0]) === (bm = bm[0])) if (s[i]) s[i] += bm;
+		else s[++i] = bm;
+		else {
 			s[++i] = null;
 			q.push({
 				i,

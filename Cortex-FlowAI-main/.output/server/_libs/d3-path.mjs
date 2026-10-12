@@ -1,8 +1,5 @@
 //#region node_modules/d3-path/src/path.js
-var pi = Math.PI;
-var tau = 2 * pi;
-var epsilon = 1e-6;
-var tauEpsilon = tau - epsilon;
+var pi = Math.PI, tau = 2 * pi, epsilon = 1e-6, tauEpsilon = tau - epsilon;
 function append(strings) {
 	this._ += strings[0];
 	for (let i = 1, n = strings.length; i < n; ++i) this._ += arguments[i] + strings[i];
