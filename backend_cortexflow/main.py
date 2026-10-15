@@ -42,7 +42,7 @@ def get_allowed_origins() -> list[str]:
     Returns the default list, plus any extra sites set in the
     CORS_ORIGINS environment variable on Render (separated by commas).
     Example on Render:
-        CORS_ORIGINS=https://my-site.com,https://www.my-site.com
+        CORS_ORIGINS=https://cortex-flow-website.onrender.com
     """
     origins = list(DEFAULT_ORIGINS)
     extra = os.getenv("CORS_ORIGINS", "")
