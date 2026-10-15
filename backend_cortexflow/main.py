@@ -11,7 +11,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routers import admin, ai, analysis, dashboard, documents, recommendations
+from .routers import admin, ai, analysis, chat, dashboard, documents, recommendations
 from .store import seed
 
 app = FastAPI(title="CortexFlow API")
@@ -71,6 +71,7 @@ app.include_router(ai.router)               # FR11 + FR8
 app.include_router(dashboard.router)        # FR9
 app.include_router(admin.router)            # FR13
 app.include_router(documents.router)        # RAG: retrieve info from uploaded documents
+app.include_router(chat.router)             # /chat, /upload-file, /upload-csv (used by the AI Chat page)
 
 
 # ---------------------------------------------------------------------------
