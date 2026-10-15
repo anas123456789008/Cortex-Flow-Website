@@ -1,8 +1,8 @@
 """
 CortexFlow API entry point.
 
-Run from the project root:
-    uvicorn cortexflow.main:app --reload
+Run locally from the project root:
+    uvicorn backend_cortexflow.main:app --reload
 Then open http://127.0.0.1:8000/docs
 """
 
@@ -42,7 +42,7 @@ def get_allowed_origins() -> list[str]:
     Returns the default list, plus any extra sites set in the
     CORS_ORIGINS environment variable on Render (separated by commas).
     Example on Render:
-        CORS_ORIGINS=https://cortex-flow-website.onrender.com
+        CORS_ORIGINS=https://your-custom-domain.com
     """
     origins = list(DEFAULT_ORIGINS)
     extra = os.getenv("CORS_ORIGINS", "")
@@ -93,9 +93,9 @@ seed()  # sample data for testing; remove when using the real database
 
 
 # ---------------------------------------------------------------------------
-# Local run: python -m cortexflow.main
+# Local run: python -m backend_cortexflow.main
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("cortexflow.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("backend_cortexflow.main:app", host="0.0.0.0", port=8000, reload=True)
