@@ -21,20 +21,42 @@ app = FastAPI(title="CortexFlow API")
 # ---------------------------------------------------------------------------
 # Default origins; extra ones can be added via the CORS_ORIGINS env var
 # (comma-separated), e.g. CORS_ORIGINS="https://app.mydomain.com,https://mydomain.com"
-origins = [
-    "http://localhost:5173",           # Vite dev server
+DEFAULT_ORIGINS = [
+    "http://localhost:5173",   # Vite dev server
     "http://127.0.0.1:5173",
-    "cortex-flow-website-2nn2-git-main-ubi2.vercel.app",    # Production frontend (no trailing slash)
+    "http://localhost:3000",
+    # Production + branch frontend URLs (must include https://, no trailing slash)
+    "https://cortex-flow-website-2nn2.vercel.app",
+    "https://cortex-flow-website-2nn2-git-main-ubi2.vercel.app",
 ]
 
-extra_origins = os.getenv("CORS_ORIGINS", "")
-origins += [o.strip().rstrip("/") for o in extra_origins.split(",") if o.strip()]
+# Matches ONLY this project's Vercel URLs, including preview deployments:
+#   https://cortex-flow-website-2nn2.vercel.app
+#   https://cortex-flow-website-2nn2-git-main-ubi2.vercel.app
+#   https://cortex-flow-website-2nn2-abc123-ubi2.vercel.app
+VERCEL_ORIGIN_REGEX = r"https://cortex-flow-website-2nn2(-[a-z0-9-]+)?\.vercel\.app"
+
+
+def get_allowed_origins() -> list[str]:
+    """
+    Returns the default list, plus any extra sites set in the
+    CORS_ORIGINS environment variable on Render (separated by commas).
+    Example on Render:
+        CORS_ORIGINS=https://my-site.com,https://www.my-site.com
+    """
+    origins = list(DEFAULT_ORIGINS)
+    extra = os.getenv("CORS_ORIGINS", "")
+    for item in extra.split(","):
+        item = item.strip().rstrip("/")
+        if item and item not in origins:
+            origins.append(item)
+    return origins
+
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    # Allows Vercel preview deployments such as https://your-site-git-main-user.vercel.app
-    allow_origin_regex=r"https://cortex-flow-website-2nn2-git-main-ubi2\.vercel\.app",
+    allow_origins=get_allowed_origins(),
+    allow_origin_regex=VERCEL_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
