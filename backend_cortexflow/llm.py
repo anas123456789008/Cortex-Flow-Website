@@ -12,7 +12,82 @@ load_dotenv()
 
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
-model = genai.GenerativeModel("gemini-2.5-flash")
+
+# ---------------------------------------------------------------------------
+# Gemini model choice
+# ---------------------------------------------------------------------------
+# Google retires old model names (gemini-2.5-flash now returns 404 "NotFound"
+# for many keys). This wrapper tries a list of models, remembers the first one
+# that works, and falls back to asking Google which models your key can use.
+# To force one model, set GEMINI_MODEL in Render -> Environment.
+from google.api_core.exceptions import NotFound
+
+MODEL_CANDIDATES = [
+    m for m in (
+        os.getenv("GEMINI_MODEL"),
+        "gemini-3.8-flash",
+        "gemini-3.6-flash",
+        "gemini-3.5-flash-lite",
+        "gemini-2.5-flash",
+    ) if m
+]
+
+
+class _ResilientModel:
+    """Works like genai.GenerativeModel(...).generate_content(prompt)."""
+
+    def __init__(self, names):
+        self.names = list(dict.fromkeys(names))
+        self.working = None
+
+    def _discover(self, already_tried):
+        """Ask Google which flash models this API key can call."""
+        try:
+            found = []
+            for m in genai.list_models():
+                name = m.name.split("/")[-1]
+                if ("generateContent" in m.supported_generation_methods
+                        and "flash" in name
+                        and not any(x in name for x in
+                                    ("image", "tts", "audio", "live", "embed", "robotics"))
+                        and name not in already_tried):
+                    found.append(name)
+            return sorted(found, reverse=True)
+        except Exception as e:
+            print("Could not list Gemini models:", e)
+            return []
+
+    def generate_content(self, prompt, **kwargs):
+        order = ([self.working] if self.working else []) + self.names
+        tried, last_error = [], None
+
+        for name in dict.fromkeys(order):
+            try:
+                response = genai.GenerativeModel(name).generate_content(prompt, **kwargs)
+                if self.working != name:
+                    print(f"Using Gemini model: {name}")
+                self.working = name
+                return response
+            except NotFound as e:
+                print(f"Gemini model {name} is not available ({e.__class__.__name__}), trying next")
+                tried.append(name)
+                last_error = e
+
+        for name in self._discover(tried):
+            try:
+                response = genai.GenerativeModel(name).generate_content(prompt, **kwargs)
+                print(f"Using Gemini model (auto-detected): {name}")
+                self.working = name
+                return response
+            except NotFound as e:
+                tried.append(name)
+                last_error = e
+
+        self.working = None
+        raise last_error
+
+
+model = _ResilientModel(MODEL_CANDIDATES)
 
 
 def generate_sql(question):
@@ -299,6 +374,3 @@ Document:
     response = model.generate_content(prompt)
 
     return response.text
-
-    
-    
