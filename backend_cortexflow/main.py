@@ -45,7 +45,7 @@ from validator import validate_sql  # noqa: E402
 from .routers import admin, ai, analysis, dashboard, documents, recommendations  # noqa: E402
 from .store import seed  # noqa: E402
 
-log = logging.getLogger("gemin")
+log = logging.getLogger("gemini")
 
 app = FastAPI(title="Gemini API Key")
 
