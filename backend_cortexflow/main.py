@@ -16,13 +16,21 @@ import sys
 # The older helper files (llm.py, db.py, schema.py, ...) import each other by
 # plain name, for example "from db import ...". Adding this folder to the import
 # path makes that work when the app is started as a package.
+#
+# "import csv" comes first on purpose: it loads Python's own csv module BEFORE
+# this folder is added to the path, so a stray file named csv.py in this folder
+# can never hide it (pandas needs the real one).
+import csv  # noqa: E402,F401
+
 BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
 if BACKEND_DIR not in sys.path:
     sys.path.insert(0, BACKEND_DIR)
 
 import pandas as pd  # noqa: E402
+import psycopg2  # noqa: E402
 from fastapi import FastAPI, File, UploadFile  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from google.api_core import exceptions as gexc  # noqa: E402
 from psycopg2 import sql as psql  # noqa: E402
 
 from db import (execute_sql, get_connection, insert_many,  # noqa: E402
@@ -39,7 +47,7 @@ from .store import seed  # noqa: E402
 
 log = logging.getLogger("gemin")
 
-app = FastAPI(title="emini API Key")
+app = FastAPI(title="Gemini API Key")
 
 # ---------------------------------------------------------------------------
 # CORS
@@ -158,6 +166,24 @@ def safe_identifier(name: str) -> str:
     return name
 
 
+def friendly_error(e: Exception) -> str:
+    """Turn a technical error into a message the user can act on."""
+    if isinstance(e, gexc.TooManyRequests):
+        return ("The AI service has reached its free usage limit. "
+                "Please wait about a minute and try again.")
+    if isinstance(e, (gexc.ServiceUnavailable, gexc.GatewayTimeout, gexc.InternalServerError)):
+        return "The AI service is busy right now. Please try again in a moment."
+    if isinstance(e, (gexc.PermissionDenied, gexc.Unauthenticated, gexc.InvalidArgument)):
+        return ("Google did not accept the AI key (GEMINI_API_KEY). "
+                "The site owner needs to check it in Render.")
+    if isinstance(e, gexc.NotFound):
+        return "The AI model is not available for this key. The site owner needs to pick another model."
+    if isinstance(e, psycopg2.Error):
+        return "I could not reach the database right now. Please try again in a moment."
+    return (f"Sorry, I could not answer that right now ({type(e).__name__}). "
+            "Please try again or rephrase your question.")
+
+
 # ---------------------------------------------------------------------------
 # POST /chat   (used by the AI Chat page)
 # ---------------------------------------------------------------------------
@@ -189,12 +215,7 @@ def chat(data: dict):
     except Exception as e:
         # The real error goes to the Render logs; the user sees a friendly message.
         log.exception("Chat request failed")
-        return {
-            "answer": f"Sorry, I could not answer that right now ({type(e).__name__}). "
-                      "Please try again or rephrase your question.",
-            "show_table": False,
-            "result": None,
-        }
+        return {"answer": friendly_error(e), "show_table": False, "result": None}
 
 
 # ---------------------------------------------------------------------------
