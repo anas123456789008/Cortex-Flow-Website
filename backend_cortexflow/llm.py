@@ -243,9 +243,11 @@ def general_chat(question):
 
     return response.text.strip()
 
-def financial_chat(question):
+def financial_chat(question, context=None):
 
-    data = financial_context()
+    # Authenticated API requests must pass a user-filtered context.
+    # The legacy fallback remains for non-request compatibility.
+    data = context if context is not None else financial_context()
 
     prompt = f"""
 You are a Financial AI Assistant.
