@@ -246,7 +246,7 @@ def general_chat(question):
 def financial_chat(question, context=None):
 
     # Authenticated API requests must pass a user-filtered context.
-    # The legacy fallback remains for non-request compatibility.
+    # Keep the old fallback for non-request compatibility.
     data = context if context is not None else financial_context()
 
     prompt = f"""
