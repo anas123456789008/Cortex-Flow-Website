@@ -7,7 +7,6 @@ from document_context import (
     get_latest_document,
     get_all_documents
 )
-from financial_insights import financial_context
 
 load_dotenv()
 
@@ -243,9 +242,18 @@ def general_chat(question):
 
     return response.text.strip()
 
-def financial_chat(question):
+def financial_chat(question, context=None):
+    """Answer using explicitly supplied, user-scoped financial data only.
 
-    data = financial_context()
+    API handlers must authenticate the caller and supply context filtered
+    by that user's ID. This function never fetches global financial context.
+    """
+    if context is None:
+        raise ValueError(
+            "User-scoped financial context is required for financial chat."
+        )
+
+    data = context
 
     prompt = f"""
 You are a Financial AI Assistant.

@@ -96,6 +96,12 @@ function ChatPage() {
       toast.error("Please sign in again");
       return;
     }
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    if (!accessToken) {
+      toast.error("Your session has expired. Please sign in again.");
+      return;
+    }
     setInput("");
     setSending(true);
 
@@ -109,6 +115,7 @@ function ChatPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           message: text,
@@ -163,6 +170,13 @@ function ChatPage() {
       return;
     }
 
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    if (!accessToken) {
+      toast.error("Your session has expired. Please sign in again.");
+      return;
+    }
+
     const isCsv = file.name
       .toLowerCase()
       .endsWith(".csv");
@@ -177,6 +191,9 @@ function ChatPage() {
     try {
       const res = await fetch(endpoint, {
         method: "POST",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+        },
         body: formData,
       });
 

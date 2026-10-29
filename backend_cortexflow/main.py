@@ -28,7 +28,7 @@ if BACKEND_DIR not in sys.path:
 
 import pandas as pd  # noqa: E402
 import psycopg2  # noqa: E402
-from fastapi import FastAPI, File, UploadFile  # noqa: E402
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from google.api_core import exceptions as gexc  # noqa: E402
 from psycopg2 import sql as psql  # noqa: E402
@@ -42,6 +42,8 @@ from llm import (answer_all_documents, classify_question,  # noqa: E402
                  generate_answer, generate_sql, is_financial_document)
 from validator import validate_sql  # noqa: E402
 
+from .auth import current_user  # noqa: E402
+from .models import User  # noqa: E402
 from .routers import admin, ai, analysis, dashboard, documents, recommendations  # noqa: E402
 from .store import seed  # noqa: E402
 
@@ -187,8 +189,80 @@ def friendly_error(e: Exception) -> str:
 # ---------------------------------------------------------------------------
 # POST /chat   (used by the AI Chat page)
 # ---------------------------------------------------------------------------
+def get_user_financial_context(user_id: str) -> dict:
+    """Return only transactions owned by the verified Supabase user."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    COALESCE(SUM(amount) FILTER (WHERE type = 'income'), 0) AS income,
+                    COALESCE(SUM(amount) FILTER (WHERE type = 'expense'), 0) AS expenses,
+                    COUNT(*) AS transaction_count
+                FROM public.transactions
+                WHERE user_id = %s
+                """,
+                (user_id,),
+            )
+            summary = cur.fetchone()
+
+            cur.execute(
+                """
+                SELECT category, COALESCE(SUM(amount), 0) AS total
+                FROM public.transactions
+                WHERE user_id = %s AND type = 'expense'
+                GROUP BY category
+                ORDER BY total DESC
+                LIMIT 10
+                """,
+                (user_id,),
+            )
+            categories = cur.fetchall()
+
+            cur.execute(
+                """
+                SELECT occurred_on, description, category, amount, type
+                FROM public.transactions
+                WHERE user_id = %s
+                ORDER BY occurred_on DESC, created_at DESC
+                LIMIT 10
+                """,
+                (user_id,),
+            )
+            recent_transactions = cur.fetchall()
+
+        income, expenses, transaction_count = summary
+        income = float(income or 0)
+        expenses = float(expenses or 0)
+        return {
+            "summary": {
+                "income": income,
+                "expenses": expenses,
+                "savings": income - expenses,
+                "transaction_count": transaction_count,
+            },
+            "expense_categories": [
+                {"category": category, "total": float(total or 0)}
+                for category, total in categories
+            ],
+            "recent_transactions": [
+                {
+                    "date": str(date),
+                    "description": description,
+                    "category": category,
+                    "amount": float(amount),
+                    "type": transaction_type,
+                }
+                for date, description, category, amount, transaction_type in recent_transactions
+            ],
+        }
+    finally:
+        conn.close()
+
+
 @app.post("/chat")
-def chat(data: dict):
+def chat(data: dict, user: User = Depends(current_user)):
     question = str(data.get("message", "")).strip()
     if not question:
         return {"answer": "Please type a question.", "show_table": False, "result": None}
@@ -199,22 +273,35 @@ def chat(data: dict):
         if question_type == "GENERAL":
             return {"answer": general_chat(question), "show_table": False, "result": None}
 
-        if question_type == "DOCUMENT":
-            return {"answer": answer_all_documents(question), "show_table": False, "result": None}
-
         if question_type == "FINANCIAL":
-            return {"answer": financial_chat(question), "show_table": False, "result": None}
+            context = get_user_financial_context(user.id)
+            return {
+                "answer": financial_chat(question, context=context),
+                "show_table": False,
+                "result": None,
+            }
 
-        # DATABASE question: write SQL, check it is safe, run it, explain the result
-        sql = validate_sql(generate_sql(question))
-        result = run_query(sql)
-        answer = generate_answer(question, result)
-        show_table = any(w in question.lower() for w in ["show", "list", "display", "table"])
-        return {"answer": answer, "show_table": show_table, "result": result}
+        if question_type == "DOCUMENT":
+            # uploaded_files has no verified ownership column in the checked-in
+            # migrations, so never query the legacy shared document table.
+            return {
+                "answer": "Document questions are temporarily unavailable while secure, user-specific document storage is configured.",
+                "show_table": False,
+                "result": None,
+            }
 
+        # Free-form SQL can read other users' data. Keep it disabled until
+        # queries are allowlisted and every data source has ownership checks.
+        return {
+            "answer": "Database-wide queries are temporarily disabled while secure, user-specific data access is configured.",
+            "show_table": False,
+            "result": None,
+        }
+
+    except HTTPException:
+        raise
     except Exception as e:
-        # The real error goes to the Render logs; the user sees a friendly message.
-        log.exception("Chat request failed")
+        log.exception("Chat request failed for authenticated user %s", user.id)
         return {"answer": friendly_error(e), "show_table": False, "result": None}
 
 
@@ -222,94 +309,21 @@ def chat(data: dict):
 # POST /upload-csv
 # ---------------------------------------------------------------------------
 @app.post("/upload-csv")
-async def upload_csv(file: UploadFile = File(...)):
-    try:
-        name, path = save_upload(file, await file.read())
-        df = read_csv(path)
-
-        table_name = safe_identifier(os.path.splitext(name)[0])
-        safe_columns = [safe_identifier(c) for c in df.columns]
-
-        column_defs = [
-            psql.SQL("{} {}").format(psql.Identifier(col),
-                                     psql.SQL(infer_sql_type(df[orig].dtype)))
-            for col, orig in zip(safe_columns, df.columns)
-        ]
-        execute_sql(psql.SQL("CREATE TABLE IF NOT EXISTS {t} ({f});").format(
-            t=psql.Identifier(table_name), f=psql.SQL(", ").join(column_defs)))
-
-        execute_sql(
-            "INSERT INTO uploaded_datasets (table_name, original_file_name) VALUES (%s, %s)",
-            (table_name, name),
-        )
-
-        insert_sql = psql.SQL("INSERT INTO {t} ({f}) VALUES ({v})").format(
-            t=psql.Identifier(table_name),
-            f=psql.SQL(",").join(psql.Identifier(c) for c in safe_columns),
-            v=psql.SQL(",").join([psql.Placeholder()] * len(safe_columns)),
-        )
-        # NaN -> None so empty CSV cells become NULL instead of failing
-        clean = df.astype(object).where(pd.notnull(df), None)
-        insert_many(insert_sql, [tuple(row) for row in clean.values])
-
-        return {"status": "success", "table": table_name, "rows_uploaded": len(df)}
-
-    except Exception as e:
-        log.exception("CSV upload failed")
-        return {"error": f"CSV upload failed: {type(e).__name__}: {e}"}
+async def upload_csv(file: UploadFile = File(...), user: User = Depends(current_user)):
+    # Legacy CSV uploads create globally named tables without owner metadata.
+    raise HTTPException(
+        status_code=503,
+        detail="CSV uploads are temporarily paused until user-isolated storage is configured.",
+    )
 
 
-# ---------------------------------------------------------------------------
-# POST /upload-file
-# ---------------------------------------------------------------------------
 @app.post("/upload-file")
-async def upload_file(file: UploadFile = File(...)):
-    try:
-        filename = os.path.basename(file.filename or "")
-        extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
-        if extension not in ("pdf", "docx", "txt"):
-            return {"error": "Unsupported file type. Use PDF, DOCX, TXT or CSV."}
-
-        name, path = save_upload(file, await file.read())
-
-        if extension == "pdf":
-            content = extract_pdf_text(path)
-        elif extension == "docx":
-            content = extract_docx_text(path)
-        else:
-            content = extract_txt_text(path)
-
-        # If it looks like a bank statement / bill, pull the transactions out too.
-        # A failure here must not lose the upload itself.
-        transactions_count = 0
-        try:
-            if is_financial_document(content) == "YES":
-                raw = (extract_transactions(content)
-                       .replace("```json", "").replace("```", "").strip())
-                transactions = json.loads(raw)
-                insert_transactions(transactions)
-                transactions_count = len(transactions)
-        except Exception:
-            log.exception("Could not import transactions from %s", name)
-
-        conn = get_connection()
-        try:
-            cur = conn.cursor()
-            cur.execute(
-                "INSERT INTO uploaded_files (file_name, file_type, content) VALUES (%s,%s,%s)",
-                (name, extension, content),
-            )
-            conn.commit()
-            cur.close()
-        finally:
-            conn.close()
-
-        return {"status": "success", "file_name": name, "file_type": extension,
-                "transactions_imported": transactions_count}
-
-    except Exception as e:
-        log.exception("File upload failed")
-        return {"error": f"File upload failed: {type(e).__name__}: {e}"}
+async def upload_file(file: UploadFile = File(...), user: User = Depends(current_user)):
+    # The legacy uploaded_files table has no ownership column in checked-in migrations.
+    raise HTTPException(
+        status_code=503,
+        detail="Document uploads are temporarily paused until user-isolated storage is configured.",
+    )
 
 
 # ---------------------------------------------------------------------------
